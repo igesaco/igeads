@@ -51,6 +51,19 @@ export default function LiveWarRoomHub({ activeClientName = '' }: LiveWarRoomHub
     }
   }, [activeClientName]);
 
+  const [availableClients, setAvailableClients] = useState<any[]>([]);
+
+  useEffect(() => {
+    fetch('/api/clients')
+      .then(r => r.json())
+      .then(d => {
+        if (d.success && Array.isArray(d.data)) {
+          setAvailableClients(d.data);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
   const fetchStats = async () => {
     try {
       const query = selectedBrandSlug !== 'all' ? `?clientSlug=${selectedBrandSlug}` : '';
@@ -173,9 +186,9 @@ export default function LiveWarRoomHub({ activeClientName = '' }: LiveWarRoomHub
             className="bg-[#121828] border border-rose-500/40 rounded-xl px-3 py-2 text-xs font-bold text-white focus:outline-none focus:border-rose-400 cursor-pointer shadow-md"
           >
             <option value="all">🏢 Tüm Portföy</option>
-            <option value="mandalinclean">🍊 Mandalin Clean (Temizlik)</option>
-            <option value="igesaturkiye">⚡ İgeAds (B2B E-İhracat)</option>
-            <option value="velvetcouture">🧥 Velvet Couture (Moda)</option>
+            {availableClients.map(c => (
+              <option key={c.id} value={c.slug}>🏢 {c.name} ({c.sector})</option>
+            ))}
           </select>
 
           <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-emerald-950/30 border border-emerald-500/40 text-emerald-300 text-xs font-bold">

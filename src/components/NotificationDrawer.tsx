@@ -20,7 +20,7 @@ interface NotificationDrawerProps {
   activeClientName?: string;
 }
 
-export default function NotificationDrawer({ isOpen, onClose, onNavigateTab, activeClientName = 'Mandalin Clean (Temizlik & Hijyen)' }: NotificationDrawerProps) {
+export default function NotificationDrawer({ isOpen, onClose, onNavigateTab, activeClientName = '' }: NotificationDrawerProps) {
   if (!isOpen) return null;
 
   const clientLower = (activeClientName || '').toLowerCase();

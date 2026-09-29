@@ -32,6 +32,7 @@ export default function AdsHub({ activeClientName = '', onOpenNewCampaign }: Ads
   const [campaigns, setCampaigns] = useState<AdCampaign[]>(mockCampaigns);
   const [filterPlatform, setFilterPlatform] = useState<string>('all');
   const [selectedBrandSlug, setSelectedBrandSlug] = useState<string>('all');
+  const [availableClients, setAvailableClients] = useState<any[]>([]);
   const [selectedCampaignForAI, setSelectedCampaignForAI] = useState<AdCampaign | null>(null);
   const [copiedHook, setCopiedHook] = useState<string | null>(null);
   const [isNewCampModalOpen, setIsNewCampModalOpen] = useState(false);
@@ -40,8 +41,22 @@ export default function AdsHub({ activeClientName = '', onOpenNewCampaign }: Ads
     name: '',
     platform: 'meta',
     dailyBudget: '1500',
-    clientSlug: 'mandalinclean'
+    clientSlug: ''
   });
+
+  useEffect(() => {
+    fetch('/api/clients')
+      .then(r => r.json())
+      .then(d => {
+        if (d.success && Array.isArray(d.data)) {
+          setAvailableClients(d.data);
+          if (d.data.length > 0) {
+            setNewCampForm(prev => ({ ...prev, clientSlug: prev.clientSlug || d.data[0].slug }));
+          }
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (activeClientName) {
@@ -214,9 +229,9 @@ export default function AdsHub({ activeClientName = '', onOpenNewCampaign }: Ads
             className="bg-[#121826] border border-[#1f293d] rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:border-indigo-500 font-bold cursor-pointer"
           >
             <option value="all">🏢 Tüm Ajans Portföyü</option>
-            <option value="mandalinclean">🍊 Mandalin Clean</option>
-            <option value="igesaturkiye">⚡ İgeAds / igesaturkiye</option>
-            <option value="velvetcouture">🧥 Velvet Couture</option>
+            {availableClients.map(c => (
+              <option key={c.id} value={c.slug}>🏢 {c.name} ({c.sector})</option>
+            ))}
           </select>
 
           <div className="flex items-center gap-1 bg-[#121826] p-1 rounded-xl border border-[#1f293d]">
@@ -523,9 +538,13 @@ export default function AdsHub({ activeClientName = '', onOpenNewCampaign }: Ads
                   onChange={(e) => setNewCampForm({ ...newCampForm, clientSlug: e.target.value })}
                   className="w-full bg-[#141b2b] border border-[#212b42] rounded-xl px-3 py-2 text-white font-medium focus:outline-none focus:border-indigo-500"
                 >
-                  <option value="mandalinclean">🍊 Mandalin Clean (Temizlik & Hijyen)</option>
-                  <option value="igesaturkiye">⚡ İgeAds (B2B E-ihracat & Büyüme)</option>
-                  <option value="velvetcouture">🧥 Velvet Couture (Lüks Moda & Deri)</option>
+                  {availableClients.length > 0 ? (
+                    availableClients.map(c => (
+                      <option key={c.id} value={c.slug}>🏢 {c.name} ({c.sector})</option>
+                    ))
+                  ) : (
+                    <option value="">Henüz marka eklenmedi (Önce marka ekleyin)</option>
+                  )}
                 </select>
               </div>
 

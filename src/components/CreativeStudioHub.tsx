@@ -16,15 +16,13 @@ import {
   Send,
   CheckCircle2
 } from 'lucide-react';
-import { mockProducts } from '../data/mockData';
 
 interface CreativeStudioHubProps {
   activeClientName?: string;
 }
 
 export default function CreativeStudioHub({ activeClientName = '' }: CreativeStudioHubProps) {
-  const [selectedProduct, setSelectedProduct] = useState(mockProducts[0]);
-  const [customProductTitle, setCustomProductTitle] = useState('Mandalin Clean Profesyonel Koltuk & Ev Temizliği');
+  const [customProductTitle, setCustomProductTitle] = useState('Yeni Hizmet / Ürün');
   const [adFormat, setAdFormat] = useState<'story' | 'feed' | 'banner'>('story');
   const [themeStyle, setThemeStyle] = useState<'luxury_dark' | 'neon_cyber' | 'minimalist_clean'>('minimalist_clean');
   const [headline, setHeadline] = useState('Koltuklarınızda Fabrika Çıkışı Temizliği');
@@ -87,7 +85,7 @@ export default function CreativeStudioHub({ activeClientName = '' }: CreativeStu
   const handleGenerateAICreative = async () => {
     setIsGeneratingAI(true);
     try {
-      const activeTitle = customProductTitle.trim() || selectedProduct.title;
+      const activeTitle = customProductTitle.trim() || 'Yeni Kampanya & Ürün';
       const res = await fetch('/api/creative-generator', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -430,8 +428,8 @@ export default function CreativeStudioHub({ activeClientName = '' }: CreativeStu
             <div className="absolute inset-0 z-0 opacity-40">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img 
-                src={selectedProduct.image} 
-                alt={selectedProduct.title} 
+                src="https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=800&auto=format&fit=crop&q=80" 
+                alt="Creative Preview" 
                 className="w-full h-full object-cover"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-[#080B11] via-[#080B11]/70 to-transparent"></div>
@@ -443,10 +441,10 @@ export default function CreativeStudioHub({ activeClientName = '' }: CreativeStu
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-1.5">
                   <div className="w-6 h-6 rounded-lg bg-gradient-to-tr from-cyan-600 to-indigo-600 flex items-center justify-center font-bold text-white text-[10px]">
-                    {customProductTitle.toLowerCase().includes('mandalin') ? 'MC' : customProductTitle.toLowerCase().includes('ige') ? 'İG' : 'VC'}
+                    {customProductTitle.toLowerCase().includes('mandalin') ? 'MC' : customProductTitle.toLowerCase().includes('ige') ? 'İG' : 'AD'}
                   </div>
                   <span className="text-xs font-black tracking-wide text-white uppercase">
-                    {customProductTitle.toLowerCase().includes('mandalin') ? 'MANDALIN CLEAN' : customProductTitle.toLowerCase().includes('ige') ? 'İGEADS / İGESATÜRKİYE' : 'VELVET COUTURE'}
+                    {customProductTitle.toLowerCase().includes('mandalin') ? 'MANDALIN CLEAN' : customProductTitle.toLowerCase().includes('ige') ? 'İGEADS / İGESATÜRKİYE' : 'REKLAM & KAMPANYA'}
                   </span>
                 </div>
 
@@ -462,7 +460,7 @@ export default function CreativeStudioHub({ activeClientName = '' }: CreativeStu
                     ? 'Koltuk Başı Hizmet: ₺499' 
                     : customProductTitle.toLowerCase().includes('ige') 
                     ? 'Net Kâr Garantili Danışmanlık' 
-                    : `Net Kâr Odaklı Fiyat: ₺${selectedProduct.salesChannels[0].price}`}
+                    : 'Yüksek Dönüşümlü Teklif'}
                 </div>
 
                 <h3 className="text-base font-black text-white leading-snug drop-shadow-md">

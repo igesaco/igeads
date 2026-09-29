@@ -139,11 +139,7 @@ export default function AIExecutiveReportModal({
                   </option>
                 ))
               ) : (
-                <>
-                  <option value="mandalinclean">Mandalin Clean (Koltuk & Ev Temizliği)</option>
-                  <option value="igesaturkiye">İgeAds / igesaturkiye (B2B & Büyüme)</option>
-                  <option value="velvetcouture">Velvet Couture (Deri Giyim)</option>
-                </>
+                <option value="">Henüz marka eklenmedi</option>
               )}
             </select>
           </div>

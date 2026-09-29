@@ -19,62 +19,7 @@ export interface AgencyContract {
   invoiceNumber: string;
 }
 
-const initialContracts: AgencyContract[] = [
-  {
-    id: 'contract-1',
-    clientSlug: 'mandalinclean',
-    clientName: 'Mandalin Clean',
-    planType: 'retainer_commission',
-    planTitle: 'Yerel Büyüme & Lead Generation Paketi',
-    monthlyRetainer: 35000,
-    commissionRate: 8,
-    currentMonthAdSpend: 75000,
-    calculatedCommission: 6000,
-    totalMonthlyFee: 41000,
-    status: 'paid',
-    dueDate: '2026-10-05',
-    lastPaymentDate: '2026-09-25',
-    contractStartDate: '2026-01-01',
-    contractRenewalDate: '2026-12-31',
-    invoiceNumber: 'İGE-2026-0901'
-  },
-  {
-    id: 'contract-2',
-    clientSlug: 'igesaturkiye',
-    clientName: 'İgeAds Danışmanlık',
-    planType: 'retainer_commission',
-    planTitle: 'Global B2B E-İhracat & Amazon Danışmanlığı',
-    monthlyRetainer: 65000,
-    commissionRate: 5,
-    currentMonthAdSpend: 110000,
-    calculatedCommission: 42500, // %5 net ciro primi
-    totalMonthlyFee: 107500,
-    status: 'due',
-    dueDate: '2026-10-02',
-    lastPaymentDate: '2026-08-30',
-    contractStartDate: '2025-11-01',
-    contractRenewalDate: '2026-11-01',
-    invoiceNumber: 'İGE-2026-0902'
-  },
-  {
-    id: 'contract-3',
-    clientSlug: 'velvetcouture',
-    clientName: 'Velvet Couture',
-    planType: 'retainer_commission',
-    planTitle: 'E-Ticaret & DPA Katalog Ölçekleme Paketi',
-    monthlyRetainer: 45000,
-    commissionRate: 12,
-    currentMonthAdSpend: 140000,
-    calculatedCommission: 16800,
-    totalMonthlyFee: 61800,
-    status: 'paid',
-    dueDate: '2026-10-08',
-    lastPaymentDate: '2026-09-22',
-    contractStartDate: '2026-02-15',
-    contractRenewalDate: '2027-02-15',
-    invoiceNumber: 'İGE-2026-0903'
-  }
-];
+const initialContracts: AgencyContract[] = [];
 
 let contractsStore = [...initialContracts];
 

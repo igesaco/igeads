@@ -104,11 +104,23 @@ export default function WhatsAppLiveCommerceHub({ activeClientName = '' }: Whats
   ]);
 
   const [selectedBrandSlug, setSelectedBrandSlug] = useState<string>('all');
-  const [weeklyRevenue, setWeeklyRevenue] = useState(142800);
+  const [availableClients, setAvailableClients] = useState<any[]>([]);
+  const [weeklyRevenue, setWeeklyRevenue] = useState(0);
   const [activeChatId, setActiveChatId] = useState<string>('chat-1');
   const [inputText, setInputText] = useState('');
   const [filterType, setFilterType] = useState<string>('all');
   const [linkGenerated, setLinkGenerated] = useState(false);
+
+  useEffect(() => {
+    fetch('/api/clients')
+      .then(r => r.json())
+      .then(d => {
+        if (d.success && Array.isArray(d.data)) {
+          setAvailableClients(d.data);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (activeClientName) {
@@ -249,9 +261,9 @@ export default function WhatsAppLiveCommerceHub({ activeClientName = '' }: Whats
             className="bg-[#101524] border border-emerald-500/40 rounded-xl px-3 py-2.5 text-xs font-bold text-white focus:outline-none focus:border-emerald-400 cursor-pointer shadow-md"
           >
             <option value="all">🏢 Tüm Ajans Müşterileri</option>
-            <option value="mandalinclean">🍊 Mandalin Clean (Temizlik & Koltuk)</option>
-            <option value="igesaturkiye">⚡ İgeAds (B2B E-İhracat & Büyüme)</option>
-            <option value="velvetcouture">🧥 Velvet Couture (Lüks Giyim & Deri)</option>
+            {availableClients.map(c => (
+              <option key={c.id} value={c.slug}>🏢 {c.name} ({c.sector})</option>
+            ))}
           </select>
 
           <div className="flex items-center gap-3 bg-gradient-to-r from-emerald-950/40 via-[#101524] to-indigo-950/30 p-3 rounded-xl border border-emerald-500/30">

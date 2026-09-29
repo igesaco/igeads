@@ -62,12 +62,13 @@ interface Props {
 
 export default function AgencyTeamWorkflowHub({ activeClientName = '', onSwitchUser }: Props) {
   const [activeTab, setActiveTab] = useState<'team' | 'kanban'>('team');
-  const [selectedClientFilter, setSelectedClientFilter] = useState<'all' | 'mandalinclean' | 'igesaturkiye' | 'velvetcouture'>('all');
+  const [selectedClientFilter, setSelectedClientFilter] = useState<string>('all');
+  const [availableClients, setAvailableClients] = useState<any[]>([]);
   const [members, setMembers] = useState<TeamMember[]>([]);
   const [tasks, setTasks] = useState<AgencyTask[]>([]);
   const [loading, setLoading] = useState(true);
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
-  const [reportClientSlug, setReportClientSlug] = useState('mandalinclean');
+  const [reportClientSlug, setReportClientSlug] = useState('');
 
   // New Member Modal State
   const [isMemberModalOpen, setIsMemberModalOpen] = useState(false);
@@ -85,9 +86,9 @@ export default function AgencyTeamWorkflowHub({ activeClientName = '', onSwitchU
   const [taskForm, setTaskForm] = useState({
     title: '',
     description: '',
-    clientName: activeClientName || 'Mandalin Clean',
-    clientSlug: 'mandalinclean',
-    assignedTo: 'Emre Kara',
+    clientName: activeClientName || '',
+    clientSlug: '',
+    assignedTo: '',
     priority: 'high',
     channel: 'meta',
     dueDate: 'Bu hafta'
@@ -96,14 +97,26 @@ export default function AgencyTeamWorkflowHub({ activeClientName = '', onSwitchU
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [teamRes, taskRes] = await Promise.all([
+      const [teamRes, taskRes, clientRes] = await Promise.all([
         fetch('/api/team'),
-        fetch('/api/tasks')
+        fetch('/api/tasks'),
+        fetch('/api/clients')
       ]);
       const teamJson = await teamRes.json();
       const taskJson = await taskRes.json();
+      const clientJson = await clientRes.json();
       if (teamJson.success) setMembers(teamJson.data);
       if (taskJson.success) setTasks(taskJson.data);
+      if (clientJson.success && Array.isArray(clientJson.data)) {
+        setAvailableClients(clientJson.data);
+        if (clientJson.data.length > 0 && !taskForm.clientSlug) {
+          setTaskForm(prev => ({
+            ...prev,
+            clientSlug: clientJson.data[0].slug,
+            clientName: clientJson.data[0].name
+          }));
+        }
+      }
     } catch (e) {
       console.error('Fetch error:', e);
     } finally {
@@ -368,36 +381,19 @@ export default function AgencyTeamWorkflowHub({ activeClientName = '', onSwitchU
                 >
                   🏢 Tüm Portföy ({tasks.length})
                 </button>
-                <button
-                  onClick={() => setSelectedClientFilter('mandalinclean')}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                    selectedClientFilter === 'mandalinclean'
-                      ? 'bg-amber-600 text-white shadow-md shadow-amber-600/30'
-                      : 'text-slate-400 hover:text-white bg-white/5 hover:bg-white/10'
-                  }`}
-                >
-                  🍊 Mandalin Clean ({tasks.filter(t => t.clientSlug === 'mandalinclean').length})
-                </button>
-                <button
-                  onClick={() => setSelectedClientFilter('igesaturkiye')}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                    selectedClientFilter === 'igesaturkiye'
-                      ? 'bg-cyan-600 text-white shadow-md shadow-cyan-600/30'
-                      : 'text-slate-400 hover:text-white bg-white/5 hover:bg-white/10'
-                  }`}
-                >
-                  ⚡ İgeAds ({tasks.filter(t => t.clientSlug === 'igesaturkiye').length})
-                </button>
-                <button
-                  onClick={() => setSelectedClientFilter('velvetcouture')}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                    selectedClientFilter === 'velvetcouture'
-                      ? 'bg-purple-600 text-white shadow-md shadow-purple-600/30'
-                      : 'text-slate-400 hover:text-white bg-white/5 hover:bg-white/10'
-                  }`}
-                >
-                  🧥 Velvet Couture ({tasks.filter(t => t.clientSlug === 'velvetcouture').length})
-                </button>
+                {availableClients.map((client) => (
+                  <button
+                    key={client.id}
+                    onClick={() => setSelectedClientFilter(client.slug)}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                      selectedClientFilter === client.slug
+                        ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
+                        : 'text-slate-400 hover:text-white bg-white/5 hover:bg-white/10'
+                    }`}
+                  >
+                    🏢 {client.name} ({tasks.filter(t => t.clientSlug === client.slug).length})
+                  </button>
+                ))}
               </div>
             </div>
 

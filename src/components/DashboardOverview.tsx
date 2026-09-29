@@ -57,12 +57,26 @@ function getClientIntelligence(clientName?: string) {
       counterActionCopy: 'Ücretsiz deneme vaadi yerine "Kendi Vaka Analizlerimiz: 90 Günde 3.8x Büyüyen Markalar & Canlı Dashboard Şeffaflığı" kancasıyla reklam açın. Güven algısıyla C-Level yöneticileri çeker.'
     };
   }
+  if (!clientName || clientName.toLowerCase().includes('yeni') || clientName.toLowerCase().includes('ekle') || clientName === '') {
+    return {
+      alertBadge: 'Ajans İşletim Sistemi Hazır',
+      alertTime: 'Sistem hazır',
+      alertTitle: 'İlk Markanızı / Müşterinizi Ekleyerek AI Analitiğini Başlatın',
+      alertDesc: 'İgeAds Agency OS temiz modda hazırlandı. Sol menüdeki marka seçiciden veya "Ajans & Markalar" sekmesinden ilk müşterinizi tanımladığınızda gerçek zamanlı ROAS, POAS ve yapay zeka reklam otomasyonu otomatik aktifleşecektir.',
+      appliedText: 'Sistem yeni markalarınızı bekliyor.',
+      competitorName: 'Piyasa & Rakip Taraması Hazır',
+      competitorBadge: 'Yapay Zeka Radarı',
+      competitorCopy: '"Markanız eklendiğinde Meta Ad Library ve Google arama rakipleri burada canlı listelenir."',
+      counterActionTitle: 'İgeAds AI Danışmanı:',
+      counterActionCopy: 'İlk markanızı eklemek için sol menüden Ajans Yönetimi sekmesine geçebilirsiniz.'
+    };
+  }
   return {
     alertBadge: 'Otonom Kâr Koruması',
-    alertTime: '15 dakika önce tespit edildi',
-    alertTitle: 'TikTok Reklamı Doyuma Ulaştı & Trendyol Kaşmir Kazak Stoğu Kritik (6 Adet Kaldı)',
-    alertDesc: 'TikTok kampanyanızın yorulma skoru 88/100 seviyesinde. Reklamı durdurup kalan günlük ₺1.200 bütçeyi ROAS\'ı 4.8x olan Meta Deri Ceket setine aktararak tahmini +₺14.200 ciro kurtarabilirsiniz.',
-    appliedText: 'Harika! Otonom kural uygulandı: TikTok bütçesi durduruldu, Meta Ceket setine aktarıldı.',
+    alertTime: 'Canlı analiz aktif',
+    alertTitle: `${clientName} Performans ve Reklam Analitiği Yayında`,
+    alertDesc: `${clientName} için çok kanallı reklam setleri, bütçe optimizasyonu ve kârlılık takibi anlık olarak izlenmektedir.`,
+    appliedText: 'Harika! Otonom kurallar aktif olarak çalışıyor.',
     competitorName: 'ModaX Premium (Doğrudan Rakip)',
     competitorBadge: 'Meta Ad Library: Yeni Kampanya',
     competitorCopy: '"Kış Sezonu Kapanıyor! Tüm Deri Ceketlerde %40 İndirim"',
@@ -71,10 +85,10 @@ function getClientIntelligence(clientName?: string) {
   };
 }
 
-export default function DashboardOverview({ onNavigateTab, onOpenGhostModal, activeClientName = 'Mandalin Clean (Temizlik & Hijyen)' }: DashboardOverviewProps) {
+export default function DashboardOverview({ onNavigateTab, onOpenGhostModal, activeClientName = '' }: DashboardOverviewProps) {
   const [insightApplied, setInsightApplied] = useState(false);
-  const [campaigns, setCampaigns] = useState<AdCampaign[]>(mockCampaigns);
-  const [products, setProducts] = useState<MarketplaceProduct[]>(mockProducts);
+  const [campaigns, setCampaigns] = useState<AdCampaign[]>([]);
+  const [products, setProducts] = useState<MarketplaceProduct[]>([]);
   const intelligence = getClientIntelligence(activeClientName);
 
   const fetchLiveMetrics = async () => {
@@ -89,10 +103,18 @@ export default function DashboardOverview({ onNavigateTab, onOpenGhostModal, act
         query = '?clientSlug=velvetcouture';
       }
 
-      const res = await fetch(`/api/campaigns${query}`);
+      const [res, prodRes] = await Promise.all([
+        fetch(`/api/campaigns${query}`),
+        fetch('/api/products')
+      ]);
       const data = await res.json();
-      if (data?.data && Array.isArray(data.data) && data.data.length > 0) {
+      const prodData = await prodRes.json();
+
+      if (data?.data && Array.isArray(data.data)) {
         setCampaigns(data.data);
+      }
+      if (prodData?.data && Array.isArray(prodData.data)) {
+        setProducts(prodData.data);
       }
     } catch (e) {
       console.warn('Dashboard live campaigns fetch error:', e);
@@ -112,9 +134,9 @@ export default function DashboardOverview({ onNavigateTab, onOpenGhostModal, act
 
   const totalSpend = campaigns.reduce((acc, c) => acc + (c.spent || 0), 0);
   const totalRevenue = campaigns.reduce((acc, c) => acc + (c.revenue || 0), 0);
-  const calculatedRoas = totalSpend > 0 ? (totalRevenue / totalSpend).toFixed(2) : '4.85';
-  const totalNetMargin = Math.max(0, Math.round(totalRevenue * 0.42 - totalSpend * 0.15));
-  const calculatedPoas = totalSpend > 0 ? ((totalNetMargin / totalSpend)).toFixed(2) : '2.42';
+  const calculatedRoas = totalSpend > 0 ? (totalRevenue / totalSpend).toFixed(2) : '0.00';
+  const totalNetMargin = totalSpend > 0 ? Math.max(0, Math.round(totalRevenue * 0.42 - totalSpend * 0.15)) : 0;
+  const calculatedPoas = totalSpend > 0 ? ((totalNetMargin / totalSpend)).toFixed(2) : '0.00';
 
   return (
     <div className="space-y-6">
@@ -293,8 +315,25 @@ export default function DashboardOverview({ onNavigateTab, onOpenGhostModal, act
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#182236]">
-                {campaigns.map((camp) => (
-                  <tr key={camp.id} className="hover:bg-[#151c2e]/50 transition-colors">
+                {campaigns.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="py-12 text-center text-slate-400">
+                      <div className="flex flex-col items-center justify-center gap-2 max-w-sm mx-auto">
+                        <BarChart3 className="w-8 h-8 text-slate-600" />
+                        <p className="text-xs font-semibold text-slate-300">Henüz aktif kampanya bulunmuyor</p>
+                        <p className="text-[11px] text-slate-500">İlk markanızı eklediğinizde veya yeni kampanya başlattığınızda canlı harcama, ciro ve ROAS verileri burada listelenir.</p>
+                        <button 
+                          onClick={() => onNavigateTab('ads')}
+                          className="mt-2 px-3.5 py-1.5 rounded-lg bg-indigo-600/30 text-indigo-300 hover:bg-indigo-600 hover:text-white border border-indigo-500/30 text-xs font-semibold transition-all cursor-pointer"
+                        >
+                          + Yeni Kampanya Başlat
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ) : (
+                  campaigns.map((camp) => (
+                    <tr key={camp.id} className="hover:bg-[#151c2e]/50 transition-colors">
                     <td className="py-3.5 pr-2">
                       <div className="flex items-center gap-2.5">
                         <span className={`w-2.5 h-2.5 rounded-full ${
@@ -351,8 +390,9 @@ export default function DashboardOverview({ onNavigateTab, onOpenGhostModal, act
                       </div>
                     </td>
                   </tr>
-                ))}
-              </tbody>
+                ))
+              )}
+            </tbody>
             </table>
           </div>
         </div>
@@ -378,43 +418,57 @@ export default function DashboardOverview({ onNavigateTab, onOpenGhostModal, act
 
             {/* Products with Stock Alert */}
             <div className="space-y-3.5">
-              {mockProducts.map((prod) => {
-                const totalStock = prod.salesChannels.reduce((acc, c) => acc + c.stock, 0);
-                const isCritical = totalStock < 20;
-
-                return (
-                  <div 
-                    key={prod.id}
-                    className={`p-3 rounded-xl border transition-all ${
-                      isCritical 
-                        ? 'bg-rose-950/20 border-rose-500/30' 
-                        : 'bg-[#141b2b]/60 border-[#1f293d]'
-                    }`}
+              {products.length === 0 ? (
+                <div className="py-8 text-center text-slate-400 text-xs glass-panel rounded-xl border border-white/5 space-y-2">
+                  <Store className="w-8 h-8 text-slate-600 mx-auto" />
+                  <p className="font-semibold text-slate-300">Henüz ürün senkronize edilmedi</p>
+                  <p className="text-[11px] text-slate-500 max-w-xs mx-auto">Trendyol veya Amazon entegrasyonu ile ürünleriniz otomatik listelenir.</p>
+                  <button
+                    onClick={() => onNavigateTab('integrations')}
+                    className="mt-1 px-3 py-1 rounded-lg bg-cyan-600/30 text-cyan-300 hover:bg-cyan-600 hover:text-white border border-cyan-500/30 text-[11px] font-semibold transition-all inline-block"
                   >
-                    <div className="flex items-center justify-between mb-1.5">
-                      <span className="font-semibold text-white text-xs line-clamp-1">{prod.title}</span>
-                      <span className={`text-[10px] font-bold px-1.5 py-0.2 rounded ${
+                    API Entegrasyonlarına Git
+                  </button>
+                </div>
+              ) : (
+                products.map((prod) => {
+                  const totalStock = prod.salesChannels.reduce((acc, c) => acc + c.stock, 0);
+                  const isCritical = totalStock < 20;
+
+                  return (
+                    <div 
+                      key={prod.id}
+                      className={`p-3 rounded-xl border transition-all ${
                         isCritical 
-                          ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30' 
-                          : 'bg-slate-800 text-slate-300'
-                      }`}>
-                        {totalStock} Adet Stok
-                      </span>
-                    </div>
-
-                    <div className="flex items-center justify-between text-[11px] text-slate-400">
-                      <span>Net Kâr: <strong className="text-emerald-400">₺{prod.netMargin}</strong> (%{prod.netMarginPercentage})</span>
-                      <span>Bağlı Reklam: <strong className="text-indigo-400">{prod.activeAdCampaignsCount} Adet</strong></span>
-                    </div>
-
-                    {isCritical && (
-                      <div className="mt-2 pt-2 border-t border-rose-500/20 flex items-center justify-between text-[10px] text-rose-300 font-medium">
-                        <span>⚠️ Stok kritik! Otomatik reklam durdurma aktif.</span>
+                          ? 'bg-rose-950/20 border-rose-500/30' 
+                          : 'bg-[#141b2b]/60 border-[#1f293d]'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between mb-1.5">
+                        <span className="font-semibold text-white text-xs line-clamp-1">{prod.title}</span>
+                        <span className={`text-[10px] font-bold px-1.5 py-0.2 rounded ${
+                          isCritical 
+                            ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30' 
+                            : 'bg-slate-800 text-slate-300'
+                        }`}>
+                          {totalStock} Adet Stok
+                        </span>
                       </div>
-                    )}
-                  </div>
-                );
-              })}
+
+                      <div className="flex items-center justify-between text-[11px] text-slate-400">
+                        <span>Net Kâr: <strong className="text-emerald-400">₺{prod.netMargin}</strong> (%{prod.netMarginPercentage})</span>
+                        <span>Bağlı Reklam: <strong className="text-indigo-400">{prod.activeAdCampaignsCount} Adet</strong></span>
+                      </div>
+
+                      {isCritical && (
+                        <div className="mt-2 pt-2 border-t border-rose-500/20 flex items-center justify-between text-[10px] text-rose-300 font-medium">
+                          <span>⚠️ Stok kritik! Otomatik reklam durdurma aktif.</span>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })
+              )}
             </div>
           </div>
 

@@ -47,32 +47,47 @@ export default function AgencyBillingHub({ activeClientName = '' }: AgencyBillin
   const [summary, setSummary] = useState({
     totalMRR: 210300,
     projectedARR: 2523600,
-    totalCollected: 102800,
-    totalPending: 107500
+    totalCollected: 0,
+    totalPending: 0
   });
+  const [availableClients, setAvailableClients] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [reminderSentMsg, setReminderSentMsg] = useState<string | null>(null);
 
   // New Contract Form State
   const [formData, setFormData] = useState({
-    clientName: 'Mandalin Clean',
-    clientSlug: 'mandalinclean',
+    clientName: '',
+    clientSlug: '',
     planTitle: 'Performans Büyüme & Lead Retainer',
-    monthlyRetainer: 35000,
+    monthlyRetainer: 25000,
     commissionRate: 10,
-    currentMonthAdSpend: 60000,
+    currentMonthAdSpend: 50000,
     dueDate: '2026-10-10'
   });
 
   const fetchBilling = async () => {
     try {
       setLoading(true);
-      const res = await fetch('/api/billing');
+      const [res, clientRes] = await Promise.all([
+        fetch('/api/billing'),
+        fetch('/api/clients')
+      ]);
       const json = await res.json();
+      const clientJson = await clientRes.json();
       if (json.success) {
         setContracts(json.data);
         if (json.summary) setSummary(json.summary);
+      }
+      if (clientJson.success && Array.isArray(clientJson.data)) {
+        setAvailableClients(clientJson.data);
+        if (clientJson.data.length > 0) {
+          setFormData(prev => ({
+            ...prev,
+            clientSlug: prev.clientSlug || clientJson.data[0].slug,
+            clientName: prev.clientName || clientJson.data[0].name
+          }));
+        }
       }
     } catch (e) {
       console.error('Failed to load billing data:', e);
@@ -320,15 +335,22 @@ export default function AgencyBillingHub({ activeClientName = '' }: AgencyBillin
                   value={formData.clientSlug}
                   onChange={(e) => {
                     const slug = e.target.value;
-                    const name = slug === 'mandalinclean' ? 'Mandalin Clean' :
-                                 slug === 'igesaturkiye' ? 'İgeAds Danışmanlık' : 'Velvet Couture';
-                    setFormData({ ...formData, clientSlug: slug, clientName: name });
+                    const found = availableClients.find(c => c.slug === slug);
+                    setFormData({ 
+                      ...formData, 
+                      clientSlug: slug, 
+                      clientName: found ? found.name : slug 
+                    });
                   }}
                   className="w-full bg-[#141b2a] border border-[#212b42] rounded-xl px-3 py-2 text-xs text-white outline-none focus:border-emerald-500"
                 >
-                  <option value="mandalinclean">Mandalin Clean (Yerel Hizmet / Koltuk Yıkama)</option>
-                  <option value="igesaturkiye">İgeAds Danışmanlık (B2B E-İhracat / Amazon)</option>
-                  <option value="velvetcouture">Velvet Couture (Lüks Giyim & Deri Moda)</option>
+                  {availableClients.length > 0 ? (
+                    availableClients.map(c => (
+                      <option key={c.id} value={c.slug}>{c.name} ({c.sector})</option>
+                    ))
+                  ) : (
+                    <option value="">Henüz marka eklenmedi (Önce marka ekleyin)</option>
+                  )}
                 </select>
               </div>
 

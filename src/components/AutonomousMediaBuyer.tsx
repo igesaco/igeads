@@ -19,9 +19,9 @@ interface AutonomousMediaBuyerProps {
   activeClientName?: string;
 }
 
-export default function AutonomousMediaBuyer({ activeClientName = 'Mandalin Clean (Temizlik & Hijyen)' }: AutonomousMediaBuyerProps) {
+export default function AutonomousMediaBuyer({ activeClientName = '' }: AutonomousMediaBuyerProps) {
   const [targetClient, setTargetClient] = useState(activeClientName);
-  const [selectedProduct, setSelectedProduct] = useState(mockProducts[0]);
+  const [selectedProduct, setSelectedProduct] = useState<any>(mockProducts[0] || null);
   const [totalBudget, setTotalBudget] = useState('3000');
   const [targetGoal, setTargetGoal] = useState<'roas' | 'poas' | 'volume'>('poas');
   const [isDeploying, setIsDeploying] = useState(false);
@@ -199,18 +199,22 @@ export default function AutonomousMediaBuyer({ activeClientName = 'Mandalin Clea
             <div>
               <label className="text-xs text-slate-400 block mb-1 font-medium">Hedef Ürün veya Hizmet:</label>
               <select 
-                value={selectedProduct.id}
+                value={selectedProduct?.id || ''}
                 onChange={(e) => {
                   const p = mockProducts.find(prod => prod.id === e.target.value);
                   if (p) setSelectedProduct(p);
                 }}
                 className="w-full bg-[#121826] border border-[#1f293d] rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-indigo-500"
               >
-                {mockProducts.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.title} (Net Kâr: ₺{p.netMargin})
-                  </option>
-                ))}
+                {mockProducts.length === 0 ? (
+                  <option value="">Tüm Kampanya / Genel Hizmetler</option>
+                ) : (
+                  mockProducts.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.title} (Net Kâr: ₺{p.netMargin})
+                    </option>
+                  ))
+                )}
               </select>
             </div>
 
