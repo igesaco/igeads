@@ -118,8 +118,8 @@ export default function SeoGeoHub({ activeClientName = '' }: SeoGeoHubProps) {
             <Bot className="w-4 h-4 text-emerald-400" />
           </div>
           <div className="flex items-baseline gap-2 mb-1">
-            <span className="text-3xl font-black text-emerald-400">84/100</span>
-            <span className="text-xs font-semibold text-emerald-400">+12 puan (Bu Ay)</span>
+            <span className="text-3xl font-black text-emerald-400">{optimizedOutput ? `${optimizedOutput.geoScore}/100` : '--/100'}</span>
+            <span className="text-xs font-semibold text-slate-400">{optimizedOutput ? 'Analiz Edildi' : 'Taranmadı'}</span>
           </div>
           <p className="text-[11px] text-slate-400">
             Kullanıcılar ChatGPT veya Perplexity&apos;ye ürün önerisi sorduğunda markanızın geçme olasılığı.
@@ -132,11 +132,11 @@ export default function SeoGeoHub({ activeClientName = '' }: SeoGeoHubProps) {
             <TrendingUp className="w-4 h-4 text-amber-400" />
           </div>
           <div className="flex items-baseline gap-2 mb-1">
-            <span className="text-3xl font-black text-white">#2 Sıra</span>
-            <span className="text-xs font-semibold text-emerald-400">Deri Ceket kelimesinde</span>
+            <span className="text-3xl font-black text-white">{optimizedOutput ? '#1 - #3 Sıra' : '--'}</span>
+            <span className="text-xs font-semibold text-slate-400">{optimizedOutput ? 'Hedef Kategori' : 'Kelime Bekleniyor'}</span>
           </div>
           <p className="text-[11px] text-slate-400">
-            Aylık 185.000 aranma hacimli anahtar kelimede ilk sayfada yer alıyorsunuz.
+            {optimizedOutput ? 'Yapay zeka başlık optimizasyonu sonrası tahmini organik sıra.' : 'Başlık analizi sonrası tahmini arama pozisyonu gösterilir.'}
           </p>
         </div>
 
@@ -146,7 +146,7 @@ export default function SeoGeoHub({ activeClientName = '' }: SeoGeoHubProps) {
             <Sparkles className="w-4 h-4 text-indigo-400" />
           </div>
           <div className="flex items-baseline gap-2 mb-1">
-            <span className="text-3xl font-black text-indigo-400">142 Atıf</span>
+            <span className="text-3xl font-black text-indigo-400">{optimizedOutput ? '12+ Kaynak' : '0 Atıf'}</span>
             <span className="text-xs font-semibold text-slate-400">Blog, Ekşi & İnceleme</span>
           </div>
           <p className="text-[11px] text-slate-400">

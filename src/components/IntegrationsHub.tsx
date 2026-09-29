@@ -55,7 +55,7 @@ export default function IntegrationsHub() {
 
     const providerKey = item.id.replace(/^int-/, '');
     const creds: Record<string, string> = {};
-    item.fields.forEach(f => {
+    (item.fields || []).forEach(f => {
       creds[f.label] = f.value || '';
     });
 
@@ -100,7 +100,7 @@ export default function IntegrationsHub() {
   const openEditModal = (item: IntegrationAccount) => {
     setEditingItem(item);
     const initial: Record<string, string> = {};
-    item.fields.forEach(f => {
+    (item.fields || []).forEach(f => {
       initial[f.label] = f.value || '';
     });
     setEditForm(initial);
@@ -111,7 +111,7 @@ export default function IntegrationsHub() {
     if (!editingItem) return;
     setIsSaving(true);
 
-    const updatedFields = editingItem.fields.map(f => ({
+    const updatedFields = (editingItem.fields || []).map(f => ({
       ...f,
       value: editForm[f.label] || f.value
     }));
@@ -222,7 +222,7 @@ export default function IntegrationsHub() {
                 </div>
 
                 <div className="flex items-center gap-2">
-                  <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full border ${item.badgeColor}`}>
+                  <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full border ${item.badgeColor || (item.connected ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30' : 'bg-slate-800 text-slate-400 border-slate-700')}`}>
                     {item.connected ? 'BAĞLI' : 'YAPILANDIRILMADI'}
                   </span>
                   <button 
@@ -237,7 +237,7 @@ export default function IntegrationsHub() {
 
               {/* Fields */}
               <div className="space-y-2.5 my-3">
-                {item.fields.map((field, fIdx) => (
+                {(item.fields || []).map((field, fIdx) => (
                   <div key={fIdx} className="bg-[#0e1320] p-2.5 rounded-xl border border-[#1a2338] text-xs">
                     <span className="text-[10px] text-slate-400 font-medium block mb-1">
                       {field.label}
@@ -300,7 +300,7 @@ export default function IntegrationsHub() {
             </div>
 
             <form onSubmit={handleSaveCredentials} className="space-y-4 text-xs">
-              {editingItem.fields.map((field, idx) => (
+              {(editingItem.fields || []).map((field, idx) => (
                 <div key={idx}>
                   <label className="block text-slate-300 font-semibold mb-1">
                     {field.label}

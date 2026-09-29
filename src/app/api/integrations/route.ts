@@ -8,30 +8,38 @@ export async function GET() {
       orderBy: { createdAt: 'asc' }
     });
 
-    // If database has configurations, map them; otherwise return mock baseline
+    // If database has configurations, merge them with schema template
     if (configs.length > 0) {
+      const merged = mockIntegrations.map(base => {
+        const providerKey = base.id.replace(/^int-/, '');
+        const found = configs.find(c => c.provider === providerKey || c.name === base.platform);
+        if (!found) return base;
+
+        let parsedCredentials: any = {};
+        try {
+          parsedCredentials = JSON.parse(found.credentials);
+        } catch {
+          parsedCredentials = {};
+        }
+
+        return {
+          ...base,
+          connected: found.connected,
+          accountName: found.accountName || base.accountName,
+          lastSync: found.lastSync ? new Date(found.lastSync).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : base.lastSync,
+          badgeColor: found.connected 
+            ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30' 
+            : 'bg-slate-800 text-slate-400 border-slate-700',
+          fields: (base.fields || []).map((f: any) => ({
+            ...f,
+            value: parsedCredentials[f.label] || f.value || ''
+          }))
+        };
+      });
+
       return NextResponse.json({
         success: true,
-        data: configs.map(c => {
-          let parsedCredentials: any = {};
-          try {
-            parsedCredentials = JSON.parse(c.credentials);
-          } catch {
-            parsedCredentials = {};
-          }
-          return {
-            id: c.id,
-            platform: c.name,
-            provider: c.provider,
-            category: c.category,
-            connected: c.connected,
-            accountName: c.accountName || `${c.name} Hesabı`,
-            lastSync: c.lastSync ? new Date(c.lastSync).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Henüz senkronize edilmedi',
-            syncFrequency: c.syncFrequency,
-            status: c.status,
-            credentials: parsedCredentials
-          };
-        })
+        data: merged
       });
     }
 

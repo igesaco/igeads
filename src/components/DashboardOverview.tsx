@@ -541,33 +541,17 @@ export default function DashboardOverview({ onNavigateTab, onOpenGhostModal, act
                 <p className="text-[11px] text-slate-400">Pazaryeri siparişleri, piksel eşlemeleri ve otonom kurallar</p>
               </div>
             </div>
-            <span className="text-[10px] font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span> CANLI
+            <span className="text-[10px] font-bold text-slate-400 bg-slate-800 px-2.5 py-0.5 rounded-full flex items-center gap-1">
+              DİNLENİYOR
             </span>
           </div>
 
-          <div className="space-y-2.5 text-xs">
-            <div className="flex items-center justify-between p-2.5 rounded-lg bg-[#141b2a]/60 border border-[#1f293d]">
-              <div className="flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-amber-400"></span>
-                <span className="text-slate-300">Trendyol Sipariş (#88219) oluşturuldu</span>
-              </div>
-              <span className="text-[10px] text-slate-500 font-mono">1 dk önce</span>
-            </div>
-            <div className="flex items-center justify-between p-2.5 rounded-lg bg-[#141b2a]/60 border border-[#1f293d]">
-              <div className="flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-blue-500"></span>
-                <span className="text-slate-300">Meta CAPI: Dönüşüm Değeri ₺2.199 Meta&apos;ya geri iletildi (Server-Side)</span>
-              </div>
-              <span className="text-[10px] text-slate-500 font-mono">2 dk önce</span>
-            </div>
-            <div className="flex items-center justify-between p-2.5 rounded-lg bg-[#141b2a]/60 border border-[#1f293d]">
-              <div className="flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-cyan-400"></span>
-                <span className="text-slate-300">Amazon & Hepsiburada stokları anlık olarak eşitlendi (48 Adet)</span>
-              </div>
-              <span className="text-[10px] text-slate-500 font-mono">5 dk önce</span>
-            </div>
+          <div className="py-8 text-center border border-dashed border-[#1f293d] rounded-xl bg-[#0c101a]/40 text-xs">
+            <Clock className="w-8 h-8 text-slate-600 mx-auto mb-2" />
+            <p className="font-semibold text-slate-300">Henüz Canlı Olay / Sipariş Akışı Yok</p>
+            <p className="text-[11px] text-slate-500 mt-1 max-w-sm mx-auto">
+              Pazaryeri ve reklam hesaplarınız bağlandığında siparişler ve CAPI dönüşümleri burada anlık listelenecektir.
+            </p>
           </div>
         </div>
       </div>

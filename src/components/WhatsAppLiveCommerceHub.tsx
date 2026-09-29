@@ -49,65 +49,11 @@ interface WhatsAppLiveCommerceHubProps {
 }
 
 export default function WhatsAppLiveCommerceHub({ activeClientName = '' }: WhatsAppLiveCommerceHubProps) {
-  const [conversations, setConversations] = useState<ChatConversation[]>([
-    {
-      id: 'chat-1',
-      customerName: 'Melis Doğan',
-      phone: '+90 533 *** ** 44',
-      status: 'abandoned_cart',
-      lastMessage: 'Merhaba ceket kalıbı dar mı acaba? Normalde M giyiyorum ama kararsız kaldım.',
-      lastMessageTime: '12 sn önce',
-      unreadCount: 1,
-      cartProduct: {
-        name: 'Hakiki Deri Biker Ceket',
-        price: '₺2.199',
-        size: 'Beden: M',
-        stock: 3
-      },
-      messages: [
-        { sender: 'agent', text: 'Merhaba Melis Hanım! Velvet Couture sepetinizdeki Hakiki Deri Ceket için size nasıl yardımcı olabiliriz?', time: '14:20' },
-        { sender: 'customer', text: 'Merhaba ceket kalıbı dar mı acaba? Normalde M giyiyorum ama kararsız kaldım.', time: '14:22' }
-      ]
-    },
-    {
-      id: 'chat-2',
-      customerName: 'Canberk Yılmaz',
-      phone: '+90 542 *** ** 88',
-      status: 'vip',
-      lastMessage: 'Ödeme linki için teşekkürler, siparişi tamamladım!',
-      lastMessageTime: '3 dk önce',
-      unreadCount: 0,
-      cartProduct: {
-        name: 'Minimalist Deri Sırt Çantası',
-        price: '₺1.190',
-        size: 'Standart',
-        stock: 8
-      },
-      messages: [
-        { sender: 'customer', text: 'Tekrar merhaba, çanta için özel bir indirim tanımlayabilir misiniz?', time: '14:05' },
-        { sender: 'ai', text: 'Canberk Bey, VIP üyemiz olduğunuz için size özel %10 indirimli hızlı ödeme linki oluşturdum: ₺1.071', time: '14:06', hasPaymentLink: true, paymentAmount: '₺1.071' },
-        { sender: 'customer', text: 'Ödeme linki için teşekkürler, siparişi tamamladım!', time: '14:10' }
-      ]
-    },
-    {
-      id: 'chat-3',
-      customerName: 'Ayşe Karaca',
-      phone: '+90 505 *** ** 12',
-      status: 'shipping_query',
-      lastMessage: 'Kargom bugün yola çıkar mı?',
-      lastMessageTime: '18 dk önce',
-      unreadCount: 0,
-      messages: [
-        { sender: 'customer', text: 'Kargom bugün yola çıkar mı?', time: '13:58' },
-        { sender: 'agent', text: 'Ayşe Hanım siparişiniz paketlendi, saat 16:30 Yurtiçi Kargo çıkışında takip kodunuz SMS ile iletilecektir.', time: '14:00' }
-      ]
-    }
-  ]);
-
+  const [conversations, setConversations] = useState<ChatConversation[]>([]);
   const [selectedBrandSlug, setSelectedBrandSlug] = useState<string>('all');
   const [availableClients, setAvailableClients] = useState<any[]>([]);
   const [weeklyRevenue, setWeeklyRevenue] = useState(0);
-  const [activeChatId, setActiveChatId] = useState<string>('chat-1');
+  const [activeChatId, setActiveChatId] = useState<string>('');
   const [inputText, setInputText] = useState('');
   const [filterType, setFilterType] = useState<string>('all');
   const [linkGenerated, setLinkGenerated] = useState(false);
