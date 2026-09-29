@@ -8,7 +8,9 @@
     "postinstall": "prisma generate",
     "start": "next start",
     "lint": "next lint",
-    "test": "node test_suite.mjs"
+    "test": "node test_suite.mjs",
+    "neon:deploy": "node scripts/deploy-neon.mjs",
+    "neon:push": "node scripts/deploy-neon.mjs"
   },
   "prisma": {
     "seed": "node prisma/seed.mjs"
