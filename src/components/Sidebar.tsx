@@ -138,11 +138,9 @@ export default function Sidebar({
                 </option>
               ))
             ) : (
-              <>
-                <option value="Mandalin Clean (Temizlik & Hijyen)">🍊 Mandalin Clean (Temizlik & Hijyen)</option>
-                <option value="İgeAds (Dijital Pazarlama & B2B)">⚡ İgeAds (Dijital Büyüme & Reklam)</option>
-                <option value="Velvet Couture (Giyim)">👗 Velvet Couture (Lüks Giyim - Örnek)</option>
-              </>
+              <option value="__add_new__" className="text-amber-400 font-semibold">
+                ➕ Henüz Marka Yok (Yeni Ekle)
+              </option>
             )}
             <option value="__add_new__" className="text-cyan-400 font-bold bg-[#0f172a]">
               ➕ Yeni Marka Ekle (Yönetim)...

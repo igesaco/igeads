@@ -36,35 +36,50 @@ import { X, Sparkles, Check, Zap } from 'lucide-react';
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState<string>('dashboard');
-  const [activeClient, setActiveClient] = useState<string>('Mandalin Clean (Temizlik & Hijyen)');
+  const [activeClient, setActiveClient] = useState<string>('');
   const [isGhostModalOpen, setIsGhostModalOpen] = useState<boolean>(false);
   const [isCampaignModalOpen, setIsCampaignModalOpen] = useState<boolean>(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
   const [isReportModalOpen, setIsReportModalOpen] = useState<boolean>(false);
   const [isNotificationDrawerOpen, setIsNotificationDrawerOpen] = useState<boolean>(false);
   
-  // Current Logged in User State
+  // Current Logged in User State (Agency Admin by default)
   const [currentUser, setCurrentUser] = useState<{
     name: string;
     email: string;
     role: string;
     type: 'agency' | 'business';
   } | null>({
-    name: 'Ahmet Yılmaz',
-    email: 'ahmet@velvetcouture.com',
-    role: 'E-Ticaret Yöneticisi',
-    type: 'business'
+    name: 'İlker Bey (Kurucu)',
+    email: 'admin@igeads.com',
+    role: 'Ajans Yöneticisi & Media Buyer',
+    type: 'agency'
   });
 
   React.useEffect(() => {
+    // 1. Restore user session if saved
     try {
       const saved = localStorage.getItem('igeads_user');
       if (saved) {
         setCurrentUser(JSON.parse(saved));
       }
     } catch {
-      // ignore in SSR
+      // ignore
     }
+
+    // 2. Fetch clients to set active client
+    fetch('/api/clients')
+      .then(r => r.json())
+      .then(json => {
+        if (json.success && Array.isArray(json.data) && json.data.length > 0) {
+          setActiveClient(json.data[0].name);
+        } else {
+          setActiveClient('Yeni Marka Ekleyin');
+        }
+      })
+      .catch(() => {
+        setActiveClient('Yeni Marka Ekleyin');
+      });
   }, []);
 
   const handleUserLogin = (userData: { name: string; email: string; role: string; type: 'agency' | 'business' }) => {
