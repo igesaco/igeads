@@ -1,0 +1,135 @@
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Client {
+  id             String     @id @default(cuid())
+  name           String
+  slug           String     @unique
+  sector         String     // "Temizlik & Koltuk Yıkama", "E-Ticaret & Moda", "B2B & SaaS", etc.
+  description    String?
+  targetAudience String?
+  monthlyBudget  Float      @default(25000)
+  currency       String     @default("TRY")
+  status         String     @default("active") // active, paused, onboarding
+  contactPerson  String?
+  contactPhone   String?
+  metaAccountId  String?
+  googleAdsId    String?
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+
+  campaigns      Campaign[]
+  products       Product[]
+}
+
+model Campaign {
+  id                     String   @id @default(cuid())
+  name                   String
+  clientId               String?
+  client                 Client?  @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  platform               String   // meta, google, tiktok, chatgpt, whatsapp
+  status                 String   // active, paused, fatigued
+  dailyBudget            Float
+  spent                  Float    @default(0)
+  revenue                Float    @default(0)
+  roas                   Float    @default(0)
+  poas                   Float    @default(0)
+  cpc                    Float    @default(0)
+  ctr                    Float    @default(0)
+  fatigueScore           Int      @default(0)
+  targetMarketplaceStock Int      @default(0)
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+}
+
+model Product {
+  id          String   @id @default(cuid())
+  name        String
+  clientId    String?
+  client      Client?  @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  sku         String   @unique
+  marketplace String   // Trendyol, Hepsiburada, Amazon, Direct
+  stock       Int
+  price       Float
+  buyboxPrice Float
+  isBuybox    Boolean  @default(true)
+  returnRate  Float    @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model AutomationRule {
+  id            String   @id @default(cuid())
+  title         String
+  category      String   // budget, stock, creative, repricer
+  trigger       String
+  action        String
+  enabled       Boolean  @default(true)
+  impactScore   Int      @default(90)
+  lastTriggered String   @default("Az önce")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  title     String
+  message   String
+  type      String   // warning, success, info, alert
+  time      String   @default("Şimdi")
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+model IntegrationConfig {
+  id            String    @id @default(cuid())
+  provider      String    @unique // meta, google, tiktok, trendyol, amazon, hepsiburada, whatsapp
+  name          String
+  category      String    // ads, marketplace, messaging
+  connected     Boolean   @default(false)
+  accountName   String?
+  credentials   String    // JSON string for keys: { apiKey, apiSecret, accessToken, ... }
+  syncFrequency String    @default("Her 10 dakikada bir")
+  lastSync      DateTime?
+  status        String    @default("configured") // active, error, configured
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+model TeamMember {
+  id              String   @id @default(cuid())
+  name            String
+  email           String   @unique
+  role            String   // admin, media_buyer, creative, account_manager
+  roleTitle       String   // "Ajans Kurucusu", "Kıdemli Medya Satın Alıcı", "Kreatif & Metin Yazarı", "Müşteri Yöneticisi"
+  phone           String?
+  assignedClients String   @default("*") // JSON or comma-separated client slugs, or "*" for all
+  status          String   @default("active") // active, away, offline
+  avatarColor     String   @default("indigo")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model AgencyTask {
+  id           String    @id @default(cuid())
+  title        String
+  description  String?
+  clientSlug   String    // mandalinclean, igesaturkiye, etc.
+  clientName   String    // Mandalin Clean, etc.
+  assignedTo   String?   // TeamMember name
+  stage        String    @default("idea") // idea, in_progress, review, ready_to_publish, published
+  priority     String    @default("medium") // low, medium, high, urgent
+  dueDate      String?   // "Bugün 18:00", "Yarın"
+  creativeHook String?   // Generated hook text
+  channel      String    @default("meta") // meta, google, tiktok, reels
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+}
+
+
