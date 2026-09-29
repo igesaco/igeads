@@ -87,28 +87,30 @@ export default function BuyboxRepricerHub() {
       <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
         <div className="glass-panel p-5 rounded-2xl">
           <span className="text-xs font-semibold text-slate-400">Toplam Takip Edilen Ürün</span>
-          <p className="text-2xl font-black text-white mt-1">3 Model</p>
+          <p className="text-2xl font-black text-white mt-1">{items.length} Model</p>
           <span className="text-xs text-slate-400">Trendyol & Amazon</span>
         </div>
 
         <div className="glass-panel p-5 rounded-2xl border-emerald-500/30">
           <span className="text-xs font-semibold text-emerald-300">Buybox Kazanma Oranı</span>
           <p className="text-2xl font-black text-emerald-400 mt-1">
-            %{((items.filter(i => i.hasBuybox).length / items.length) * 100).toFixed(0)}
+            {items.length > 0 ? `%${((items.filter(i => i.hasBuybox).length / items.length) * 100).toFixed(0)}` : '%0'}
           </p>
-          <span className="text-xs text-emerald-400 font-bold">2/3 Ürün Sizde</span>
+          <span className="text-xs text-emerald-400 font-bold">
+            {items.length > 0 ? `${items.filter(i => i.hasBuybox).length}/${items.length} Ürün Sizde` : 'Veri Yok'}
+          </span>
         </div>
 
         <div className="glass-panel p-5 rounded-2xl border-rose-500/30">
           <span className="text-xs font-semibold text-rose-300">Önlenen Günlük Kayıp</span>
-          <p className="text-2xl font-black text-rose-400 mt-1">₺14.500</p>
+          <p className="text-2xl font-black text-rose-400 mt-1">₺0</p>
           <span className="text-xs text-slate-400">Kaybedilen Buybox Sebebiyle</span>
         </div>
 
         <div className="glass-panel p-5 rounded-2xl">
           <span className="text-xs font-semibold text-slate-400">Otonom Repricer Modu</span>
-          <p className="text-2xl font-black text-amber-400 mt-1">Aktif</p>
-          <span className="text-xs text-slate-400">Dakikalık Tarama</span>
+          <p className="text-2xl font-black text-amber-400 mt-1">{items.length > 0 ? 'Aktif' : 'Beklemede'}</p>
+          <span className="text-xs text-slate-400">Pazaryeri API Bağlantısı Bekleniyor</span>
         </div>
       </div>
 
@@ -117,16 +119,28 @@ export default function BuyboxRepricerHub() {
         <h2 className="text-sm font-bold text-white mb-4">Pazaryeri Buybox & Fiyat Savaşları Matrisi</h2>
 
         <div className="space-y-4">
-          {items.map((item) => (
-            <div 
-              key={item.id}
-              className={`p-4 rounded-xl border transition-all ${
-                item.hasBuybox 
-                  ? 'bg-[#121828] border-emerald-500/30' 
-                  : 'bg-rose-950/20 border-rose-500/40 shadow-lg shadow-rose-950/20'
-              }`}
-            >
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
+          {items.length === 0 ? (
+            <div className="p-12 text-center border border-dashed border-[#1f293d] rounded-2xl bg-[#0e1320]/40">
+              <ShoppingBag className="w-12 h-12 text-slate-600 mx-auto mb-3" />
+              <h3 className="text-sm font-bold text-white mb-1">Henüz Pazaryeri API Entegrasyonu veya Ürün Bağlantısı Yok</h3>
+              <p className="text-xs text-slate-400 max-w-md mx-auto mb-2">
+                Trendyol veya Amazon satıcı mağazanızı bağladığınızda Buybox rekabeti, rakip fiyat kırmaları ve otonom fiyat yenileme (repricer) burada anlık olarak canlı izlenecektir.
+              </p>
+              <p className="text-[11px] text-amber-400 font-medium">
+                Pazaryeri API anahtarınızı tanımlamak için sol menüden &quot;Entegrasyonlar&quot; sekmesine gidin.
+              </p>
+            </div>
+          ) : (
+            items.map((item) => (
+              <div 
+                key={item.id}
+                className={`p-4 rounded-xl border transition-all ${
+                  item.hasBuybox 
+                    ? 'bg-[#121828] border-emerald-500/30' 
+                    : 'bg-rose-950/20 border-rose-500/40 shadow-lg shadow-rose-950/20'
+                }`}
+              >
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
                 <div>
                   <div className="flex items-center gap-2">
                     <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded border ${
@@ -210,7 +224,7 @@ export default function BuyboxRepricerHub() {
                 )}
               </div>
             </div>
-          ))}
+          )))}
         </div>
       </div>
     </div>

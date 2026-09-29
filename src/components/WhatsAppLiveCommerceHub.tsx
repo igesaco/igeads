@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   MessageSquare, 
+  MessageCircle,
   Send, 
   Sparkles, 
   ShoppingBag, 
@@ -186,31 +187,16 @@ export default function WhatsAppLiveCommerceHub({ activeClientName = '' }: Whats
   const handleAiAutoCloser = () => {
     if (!activeChat) return;
     const firstName = activeChat.customerName.split(' ')[0] || 'Müşterimiz';
-    let aiSuggestion = '';
-
-    if (selectedBrandSlug === 'mandalinclean' || activeChat.cartProduct?.name.includes('Yıkama') || activeChat.cartProduct?.name.includes('Temizlik')) {
-      aiSuggestion = `${firstName} Hanım/Bey merhaba! Mandalin Clean antibakteriyel buharlı vakum teknolojimiz kumaş liflerindeki lekeleri ve maytları %99.9 oranında temizler, kimyasal kalıntı bırakmaz. Yarın servis ekibimiz bölgenizde. Randevunuzu onaylayalım mı?`;
-    } else if (selectedBrandSlug === 'igesaturkiye' || activeChat.cartProduct?.name.includes('B2B') || activeChat.cartProduct?.name.includes('Danışmanlık')) {
-      aiSuggestion = `Merhaba ${firstName} Bey/Hanım! Markanızın reklam bütçesi ve POAS hedeflerini değerlendirdik. Kıdemli Medya Yöneticimiz ve Kurucumuzla 20 dakikalık canlı strateji toplantısı için bağlantımızı iletiyorum: https://calendly.com/igeads/b2b-growth`;
-    } else {
-      aiSuggestion = `${firstName} Hanım merhaba! Biker Ceketimiz İtalyan Slim-fit kalıptır. İçine triko veya kazakla rahat kombinlemek için kesinlikle bir beden büyük yani "L Beden" öneriyoruz. Şu an son 3 adet kaldı, sepetinize özel %5 ek indirim tanımlayabilirim. İster misiniz?`;
-    }
+    const productName = activeChat.cartProduct?.name || 'sepetinizdeki ürün';
+    const aiSuggestion = `Merhaba ${firstName} Hanım/Bey! ${productName} hakkındaki sorunuzu aldık. Sizin için sepette geçerli özel %10 indirim tanımlayabilir ve siparişinizi hemen onaylayabiliriz. İster misiniz?`;
     setInputText(aiSuggestion);
   };
 
   const handleCreateFastPaymentLink = () => {
     if (!activeChat) return;
     const firstName = activeChat.customerName.split(' ')[0] || 'Müşterimiz';
-    let discountedPrice = '₺1.979';
-    let label = 'Özel ödeme linki gönderildi';
-
-    if (selectedBrandSlug === 'mandalinclean') {
-      discountedPrice = '₺350 Kapora';
-      label = 'Randevu kapora linki oluşturuldu';
-    } else if (selectedBrandSlug === 'igesaturkiye') {
-      discountedPrice = '₺15.000 Ön Avans';
-      label = 'Stratejik danışmanlık avans linki oluşturuldu';
-    }
+    const discountedPrice = activeChat.cartProduct?.price || '₺500';
+    const label = 'Özel ödeme linki oluşturuldu';
 
     const linkMsg = {
       sender: 'ai' as const,
@@ -281,7 +267,20 @@ export default function WhatsAppLiveCommerceHub({ activeClientName = '' }: Whats
       </div>
 
       {/* Main 2-Column Chat Layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 h-[640px] bg-[#0c101a] border border-[#1a2338] rounded-2xl overflow-hidden shadow-2xl">
+      {conversations.length === 0 ? (
+        <div className="glass-panel p-16 rounded-2xl border border-dashed border-[#1f293d] text-center bg-[#0c101a]/60">
+          <MessageCircle className="w-14 h-14 text-emerald-500/40 mx-auto mb-3" />
+          <h3 className="text-base font-bold text-white mb-2">Henüz Aktif WhatsApp Sohbeti Yok</h3>
+          <p className="text-xs text-slate-400 max-w-lg mx-auto mb-4 leading-relaxed">
+            WhatsApp Cloud API veya QR Kod entegrasyonu tamamlandığında; web sitenizden ve pazaryerlerinden gelen sepet terkleri, müşteri soruları ve otomatik satış kapatma akışları burada canlı olarak listelenecektir.
+          </p>
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-semibold">
+            <Zap className="w-3.5 h-3.5" />
+            <span>Entegrasyonlar sekmesinden WhatsApp API anahtarınızı tanımlayın</span>
+          </div>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 h-[640px] bg-[#0c101a] border border-[#1a2338] rounded-2xl overflow-hidden shadow-2xl">
         
         {/* Left: Chat List (4 cols) */}
         <div className="lg:col-span-4 border-r border-[#1a2338] flex flex-col bg-[#0e1322]">
@@ -485,6 +484,7 @@ export default function WhatsAppLiveCommerceHub({ activeClientName = '' }: Whats
           </div>
         </div>
       </div>
+      )}
     </div>
   );
 }

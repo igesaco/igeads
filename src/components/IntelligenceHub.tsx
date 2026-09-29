@@ -28,7 +28,7 @@ export default function IntelligenceHub() {
   const [competitors, setCompetitors] = useState<CompetitorAd[]>(mockCompetitorAds);
 
   // AI Content Generator State
-  const [genProduct, setGenProduct] = useState('Mandalin Clean Koltuk & Ev Temizliği');
+  const [genProduct, setGenProduct] = useState('');
   const [genVibe, setGenVibe] = useState('Merak & Lüks Hissi');
   const [isGeneratingCreator, setIsGeneratingCreator] = useState(false);
   const [generatedResult, setGeneratedResult] = useState<{
@@ -36,17 +36,7 @@ export default function IntelligenceHub() {
     script: string[];
     cta: string;
     visualPrompt: string;
-  } | null>({
-    hook: '"Evinizi temizlemek için hafta sonunuzu harcamayı bırakın. Mandalin Clean ile 2 saatte otel konforu."',
-    script: [
-      '0-3 sn: Koltuktaki görünmeyen toz ve alerjenlerin mikroskobik/yakın çekimi.',
-      '3-8 sn: Profesyonel vakumlu yıkama makinesinin suyu çekerken çıkardığı tatmin edici an.',
-      '8-15 sn: Kuruyan kumaşın pırıl pırıl dokusu ve evin ferah havası.',
-      '15-20 sn: Aynı gün randevu ve müşteri memnuniyet garantisi bildirimi.'
-    ],
-    cta: 'Bugüne özel %20 tanışma indirimiyle hemen randevu oluştur.',
-    visualPrompt: 'Cinematic hyper-realistic commercial of deep carpet and upholstery cleaning, water extraction satisfying moment, sparkling clean living room, warm daylight, 8k resolution.'
-  });
+  } | null>(null);
 
   const copyText = (text: string) => {
     navigator.clipboard.writeText(text);
@@ -149,7 +139,16 @@ export default function IntelligenceHub() {
           </div>
 
           {/* Competitor Ad Cards with AI Counter Campaign */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+          {competitors.length === 0 ? (
+            <div className="p-12 text-center border border-dashed border-[#1f293d] rounded-2xl bg-[#0e1320]/40">
+              <Search className="w-12 h-12 text-slate-600 mx-auto mb-3" />
+              <h3 className="text-sm font-bold text-white mb-1">Henüz Taranan Rakip Reklamı Yok</h3>
+              <p className="text-xs text-slate-400 max-w-md mx-auto">
+                Yukarıdaki arama çubuğuna bir rakip marka adı veya Instagram profili girerek Meta Ad Library ve TikTok Creative Center üzerinden tersine mühendislik analizini başlatın.
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
             {competitors.map((comp) => (
               <div 
                 key={comp.id} 
@@ -240,6 +239,7 @@ export default function IntelligenceHub() {
               </div>
             ))}
           </div>
+          )}
         </div>
       )}
 
@@ -262,49 +262,59 @@ export default function IntelligenceHub() {
             </button>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {mockContentCalendar.map((item) => (
-              <div 
-                key={item.id}
-                className="bg-[#121624] border border-[#1e273b] hover:border-purple-500/40 p-4 rounded-xl transition-all flex flex-col justify-between"
-              >
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs font-extrabold text-white">Gün {item.day}</span>
-                    <span className="text-[10px] text-slate-400 font-medium">{item.date}</span>
+          {mockContentCalendar.length === 0 ? (
+            <div className="p-12 text-center border border-dashed border-[#1f293d] rounded-2xl bg-[#0e1320]/40">
+              <CalendarIcon className="w-12 h-12 text-slate-600 mx-auto mb-3" />
+              <h3 className="text-sm font-bold text-white mb-1">Henüz Oluşturulmuş İçerik Takvimi Yok</h3>
+              <p className="text-xs text-slate-400 max-w-md mx-auto">
+                Hedef kitlenize ve ürünlerinize uygun 30 günlük çok kanallı video ve reklam takvimi oluşturmak için &quot;Gelecek Ayı Yeniden Planla&quot; butonunu kullanabilirsiniz.
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              {mockContentCalendar.map((item) => (
+                <div 
+                  key={item.id}
+                  className="bg-[#121624] border border-[#1e273b] hover:border-purple-500/40 p-4 rounded-xl transition-all flex flex-col justify-between"
+                >
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-xs font-extrabold text-white">Gün {item.day}</span>
+                      <span className="text-[10px] text-slate-400 font-medium">{item.date}</span>
+                    </div>
+
+                    <span className="inline-block px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-500/15 text-indigo-300 border border-indigo-500/20 mb-2">
+                      {item.platform}
+                    </span>
+
+                    <h4 className="text-xs font-bold text-white mb-2 line-clamp-1">{item.title}</h4>
+
+                    <div className="bg-[#0e1320] p-2.5 rounded-lg border border-[#1a2338] mb-3">
+                      <span className="text-[10px] text-slate-400 block font-semibold mb-0.5">Vurucu Kanca (İlk 2 Sn):</span>
+                      <p className="text-xs text-purple-200 italic line-clamp-2">{item.hook}</p>
+                    </div>
+
+                    <p className="text-[11px] text-slate-300 line-clamp-2 mb-2">
+                      <strong>Kurgu:</strong> {item.scriptOutline}
+                    </p>
                   </div>
 
-                  <span className="inline-block px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-500/15 text-indigo-300 border border-indigo-500/20 mb-2">
-                    {item.platform}
-                  </span>
-
-                  <h4 className="text-xs font-bold text-white mb-2 line-clamp-1">{item.title}</h4>
-
-                  <div className="bg-[#0e1320] p-2.5 rounded-lg border border-[#1a2338] mb-3">
-                    <span className="text-[10px] text-slate-400 block font-semibold mb-0.5">Vurucu Kanca (İlk 2 Sn):</span>
-                    <p className="text-xs text-purple-200 italic line-clamp-2">{item.hook}</p>
+                  <div className="pt-3 border-t border-[#1a2338]">
+                    <div className="flex items-center justify-between text-[11px]">
+                      <span className="text-slate-400 text-[10px]">{item.status === 'scheduled' ? '🟢 Planlandı' : '🟡 Yayına Hazır'}</span>
+                      <button 
+                        onClick={() => copyText(`${item.hook}\n\nKurgu: ${item.scriptOutline}\n\nCTA: ${item.callToAction}`)}
+                        className="text-purple-400 hover:text-purple-300 flex items-center gap-1 font-semibold text-xs cursor-pointer"
+                      >
+                        {copiedItem ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                        <span>Senaryoyu Al</span>
+                      </button>
+                    </div>
                   </div>
-
-                  <p className="text-[11px] text-slate-300 line-clamp-2 mb-2">
-                    <strong>Kurgu:</strong> {item.scriptOutline}
-                  </p>
                 </div>
-
-                <div className="pt-3 border-t border-[#1a2338]">
-                  <div className="flex items-center justify-between text-[11px]">
-                    <span className="text-slate-400 text-[10px]">{item.status === 'scheduled' ? '🟢 Planlandı' : '🟡 Yayına Hazır'}</span>
-                    <button 
-                      onClick={() => copyText(`${item.hook}\n\nKurgu: ${item.scriptOutline}\n\nCTA: ${item.callToAction}`)}
-                      className="text-purple-400 hover:text-purple-300 flex items-center gap-1 font-semibold text-xs cursor-pointer"
-                    >
-                      {copiedItem ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
-                      <span>Senaryoyu Al</span>
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 

@@ -39,47 +39,31 @@ export default function CreativeStudioHub({ activeClientName = '' }: CreativeStu
     'Evinize temizlik ekibi çağırmadan önce bu 3 kuralı bilin!'
   ]);
 
-  // Sync default presets when activeClientName changes
+  // Sync presets when activeClientName changes
   React.useEffect(() => {
-    if (!activeClientName) return;
-    const lower = activeClientName.toLowerCase();
-    if (lower.includes('mandalin')) {
-      setCustomProductTitle('Mandalin Clean Profesyonel Buharlı Koltuk & Yatak Yıkama');
-      setHeadline('Koltuklarınızda Fabrika Çıkışı Ferahlığı');
-      setSubheading('Alman Kärcher derin vakum ve antialerjik solüsyonlarla evinizde otel konforu.');
-      setCtaText('Hemen Randevu Al / Fiyat Öğren');
-      setBadgeText('AYNI GÜN BURSA GENELİ HİZMET');
-      setThemeStyle('minimalist_clean');
+    if (!activeClientName) {
+      setCustomProductTitle('');
+      setHeadline('Markanız İçin Yapay Zeka Destekli Reklam Tasarımı');
+      setSubheading('Ürününüzün özelliklerini yazın; yapay zeka yüksek dönüşümlü reklam metinleri ve kancaları üretsin.');
+      setCtaText('Hemen İncele / Satın Al');
+      setBadgeText('ÖZEL TEKLİF');
       setAiHooks([
-        'Bize bu koltuğu çöpe atılacak diye verdiler, ama...',
-        'Hafta sonunuzu temizlikle heba etmekten yorulmadınız mı?',
-        'Evinize koltuk temizleme ekibi çağırmadan önce bu 3 kuralı bilin!'
+        'Bu ürünü denedikten sonra eski yöntemlerinizi unutacaksınız!',
+        'Satın almadan önce mutlaka bilmeniz gereken 3 önemli detay...',
+        'Sınırlı süreli teklifimizi kaçırmayın!'
       ]);
-    } else if (lower.includes('ige') || lower.includes('danışmanlık')) {
-      setCustomProductTitle('İgeAds Amazon FBA & E-İhracat Büyüme Danışmanlığı');
-      setHeadline('Ürünlerinizi Amazon Globalde Milyonlara Satın');
-      setSubheading('A\'dan Z\'ye mağaza kurulumu, PPC reklam optimizasyonu ve Buybox yönetimi ile ihracatınızı katlayın.');
-      setCtaText('Ücretsiz İhracat Analizi Al');
-      setBadgeText('B2B STRATEJİ GÖRÜŞMESİ');
-      setThemeStyle('luxury_dark');
-      setAiHooks([
-        'Amazon Amerika\'da ayda $50.000 ciroya ulaşan Türk üreticinin sırrı!',
-        'E-ihracatta en çok para kaybettiren 3 reklam hatası',
-        'Fabrikanız Türkiye\'de, müşterileriniz tüm dünyada olsun'
-      ]);
-    } else if (lower.includes('velvet') || lower.includes('couture')) {
-      setCustomProductTitle('Velvet Couture Hakiki Deri Biker Ceket Koleksiyonu');
-      setHeadline('Kusursuz İtalyan İşçiliği, Zamansız Zarafet');
-      setSubheading('%100 hakiki kuzu derisi, özel el dikimi astar ve ikonik metal aksesuarlarla stilinizi zirveye taşıyın.');
-      setCtaText('Şimdi Keşfet • Ücretsiz Kargo');
-      setBadgeText('YENİ SEZON KOLEKSİYONU');
-      setThemeStyle('luxury_dark');
-      setAiHooks([
-        'Gardırobunuzda tek bir ceket olacaksa, kesinlikle bu olmalı!',
-        'Hakiki kuzu derisi ile suni deri arasındaki 1 saniyelik fark',
-        'Bu ceketle girdiğiniz her odada gözler üzerinizde olacak'
-      ]);
+      return;
     }
+    setCustomProductTitle(activeClientName);
+    setHeadline(`${activeClientName} İle Farkı Yaşayın`);
+    setSubheading(`${activeClientName} kalitesi ve avantajlı teklifleriyle tanışın.`);
+    setCtaText('Hemen İncele');
+    setBadgeText('GÜNCEL TEKLİF');
+    setAiHooks([
+      `${activeClientName} ile tanışmaya hazır mısınız?`,
+      'Neden müşterilerimiz bizi tercih ediyor?',
+      'Bugüne özel fırsatı kaçırmayın!'
+    ]);
   }, [activeClientName]);
 
   const handleGenerateAICreative = async () => {
@@ -257,51 +241,12 @@ export default function CreativeStudioHub({ activeClientName = '' }: CreativeStu
               type="text"
               value={customProductTitle}
               onChange={(e) => setCustomProductTitle(e.target.value)}
-              placeholder="Örn: Mandalin Clean Koltuk Yıkama, igesaturkiye..."
-              className="w-full bg-[#121826] border border-[#1f293d] rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-purple-500 mb-2 font-medium"
+              placeholder="Örn: Kadın Moda & Çanta, Doğal Sabun, Diş Tedavisi..."
+              className="w-full bg-[#121826] border border-[#1f293d] rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-purple-500 mb-1 font-medium"
             />
-            {/* Quick Presets */}
-            <div className="flex flex-wrap gap-1.5">
-              <button
-                type="button"
-                onClick={() => {
-                  setCustomProductTitle('Mandalin Clean Profesyonel Koltuk & Ev Temizliği');
-                  setHeadline('Koltuklarınızda Fabrika Çıkışı Temizliği');
-                  setSubheading('Alman teknolojisi derin vakum ve antialerjik solüsyonlarla evinizde otel ferahlığı.');
-                  setCtaText('Hemen Randevu Al / Fiyat Öğren');
-                  setBadgeText('AYNI GÜN HİZMET');
-                }}
-                className="text-[10px] px-2 py-1 rounded-md bg-amber-500/10 border border-amber-500/30 text-amber-300 hover:bg-amber-500/20 transition-all cursor-pointer"
-              >
-                🍊 Mandalin Clean
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setCustomProductTitle('İgesatürkiye Performans Pazarlama & ROAS Yönetimi');
-                  setHeadline('Reklam Bütçenizi Satışa Dönüştürün');
-                  setSubheading('Yapay zeka destekli otonom reklam optimizasyonuyla e-ticaret cironuzu katlayın.');
-                  setCtaText('Ücretsiz Büyüme Analizi Başlat');
-                  setBadgeText('ROAS ODAKLI BÜYÜME');
-                }}
-                className="text-[10px] px-2 py-1 rounded-md bg-cyan-500/10 border border-cyan-500/30 text-cyan-300 hover:bg-cyan-500/20 transition-all cursor-pointer"
-              >
-                ⚡ İgeAds / igesaturkiye
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setCustomProductTitle('Velvet Couture Hakiki Deri Biker Ceket');
-                  setHeadline('Hakiki İtalyan Kuzu Derisi');
-                  setSubheading('10 Yıl Garantili Yerli Üretim Biker Ceket');
-                  setCtaText('Sepette %20 İndirimle Keşfet');
-                  setBadgeText('SINIRLI ÜRETİM');
-                }}
-                className="text-[10px] px-2 py-1 rounded-md bg-purple-500/10 border border-purple-500/30 text-purple-300 hover:bg-purple-500/20 transition-all cursor-pointer"
-              >
-                🧥 Velvet Couture
-              </button>
-            </div>
+            <p className="text-[11px] text-slate-500">
+              Reklamını hazırlamak istediğiniz ürün veya hizmet adını yazın.
+            </p>
           </div>
 
           {/* Format selector */}
@@ -490,7 +435,7 @@ export default function CreativeStudioHub({ activeClientName = '' }: CreativeStu
             <div>
               <span className="text-[10px] text-slate-400 block font-bold uppercase tracking-wider">Hedef Marka & Portal</span>
               <span className="text-xs font-black text-white">
-                {customProductTitle.toLowerCase().includes('mandalin') ? '🍊 Mandalin Clean' : customProductTitle.toLowerCase().includes('ige') ? '⚡ İgeAds / igesaturkiye' : '🧥 Velvet Couture'}
+                {customProductTitle || activeClientName || 'Yeni Kampanya'}
               </span>
             </div>
             <button

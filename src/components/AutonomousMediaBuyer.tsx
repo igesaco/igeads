@@ -20,6 +20,7 @@ interface AutonomousMediaBuyerProps {
 }
 
 export default function AutonomousMediaBuyer({ activeClientName = '' }: AutonomousMediaBuyerProps) {
+  const [clients, setClients] = useState<any[]>([]);
   const [targetClient, setTargetClient] = useState(activeClientName);
   const [selectedProduct, setSelectedProduct] = useState<any>(mockProducts[0] || null);
   const [totalBudget, setTotalBudget] = useState('3000');
@@ -28,71 +29,44 @@ export default function AutonomousMediaBuyer({ activeClientName = '' }: Autonomo
   const [isSuccess, setIsSuccess] = useState(false);
 
   useEffect(() => {
+    fetch('/api/clients')
+      .then(r => r.json())
+      .then(json => {
+        if (json.success && Array.isArray(json.data)) {
+          setClients(json.data);
+          if (json.data.length > 0 && !targetClient) {
+            setTargetClient(json.data[0].name);
+          }
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
     if (activeClientName) setTargetClient(activeClientName);
   }, [activeClientName]);
 
   const clientLower = targetClient.toLowerCase();
-  let clientSlug = 'velvetcouture';
-  let clientDisplayName = 'Velvet Couture';
+  const selectedClientObj = clients.find(c => c.name === targetClient);
+  let clientSlug = selectedClientObj?.slug || 'marka';
+  let clientDisplayName = targetClient || 'Müşteri Markası';
   let sectorAllocation = {
     meta: {
       budget: Math.round(Number(totalBudget) * 0.45),
-      audiences: ['Lüks Giyim & Deri Tutkunları (Geniş)', 'Pazaryeri Sepette Bırakanlar (Retargeting)', 'Benzer Alıcılar (Lookalike %1)'],
-      predictedRoas: '4.8x'
+      audiences: ['Geniş İlgi Alanı & Satın Alma Potansiyeli', 'Sepette Bırakanlar (Dinamik Retargeting)', 'Benzer Alıcılar (Lookalike %1)'],
+      predictedRoas: '4.5x'
     },
     google: {
       budget: Math.round(Number(totalBudget) * 0.35),
-      keywords: ['hakiki deri ceket erkek', 'biker deri mont fiyatları', 'en iyi deri mont markası'],
-      predictedRoas: '5.2x'
+      keywords: [`${clientDisplayName} satın al`, `${clientDisplayName} fiyatları`, 'en iyi fırsatlar'],
+      predictedRoas: '5.0x'
     },
     tiktok: {
       budget: Math.round(Number(totalBudget) * 0.20),
-      hook: 'POV: Gerçek deri ile sahtesini 1 saniyede anlama yöntemi...',
-      predictedRoas: '3.6x'
+      hook: `Neden herkes ${clientDisplayName} konuşuyor? İşte cevabı...`,
+      predictedRoas: '3.8x'
     }
   };
-
-  if (clientLower.includes('mandalin') || clientLower.includes('koltuk') || clientLower.includes('temizlik')) {
-    clientSlug = 'mandalinclean';
-    clientDisplayName = 'Mandalin Clean';
-    sectorAllocation = {
-      meta: {
-        budget: Math.round(Number(totalBudget) * 0.45),
-        audiences: ['Yerel Bölge Ev ve Koltuk Temizliği (30km)', 'Evcil Hayvan Sahipleri & Hijyen', 'Yeni Taşınanlar & Bahar Temizliği'],
-        predictedRoas: '5.4x'
-      },
-      google: {
-        budget: Math.round(Number(totalBudget) * 0.35),
-        keywords: ['yerinde koltuk yıkama fiyatları', 'buharlı ev koltuk temizliği', 'profesyonel koltuk temizleme şirketi'],
-        predictedRoas: '5.8x'
-      },
-      tiktok: {
-        budget: Math.round(Number(totalBudget) * 0.20),
-        hook: 'POV: Koltuğunuzu en son ne zaman yıkattınız? İçinden çıkan suyu görünce şok olacaksınız...',
-        predictedRoas: '4.2x'
-      }
-    };
-  } else if (clientLower.includes('ige') || clientLower.includes('ajans') || clientLower.includes('roas') || clientLower.includes('b2b')) {
-    clientSlug = 'igesaturkiye';
-    clientDisplayName = 'İgeAds / igesaturkiye';
-    sectorAllocation = {
-      meta: {
-        budget: Math.round(Number(totalBudget) * 0.45),
-        audiences: ['E-Ticaret Yöneticileri & Pazaryeri Satıcıları', 'Şirket Kurucuları & CEOlar (B2B)', 'Dönüşüm Odaklı Reklamverenler'],
-        predictedRoas: '4.6x'
-      },
-      google: {
-        budget: Math.round(Number(totalBudget) * 0.35),
-        keywords: ['e-ticaret reklam ajansı', 'roas optimizasyon danışmanlığı', 'meta reklam yönetimi ajansı'],
-        predictedRoas: '5.6x'
-      },
-      tiktok: {
-        budget: Math.round(Number(totalBudget) * 0.20),
-        hook: 'Reklam bütçenizi yakmadan cironuzu 3 katına çıkarmanın formülü...',
-        predictedRoas: '3.9x'
-      }
-    };
-  }
 
   const handleLaunch = async () => {
     setIsDeploying(true);
@@ -174,6 +148,22 @@ export default function AutonomousMediaBuyer({ activeClientName = '' }: Autonomo
             </button>
           </div>
         </div>
+      ) : clients.length === 0 ? (
+        <div className="glass-panel p-12 text-center rounded-2xl border border-[#1f293d] max-w-xl mx-auto">
+          <div className="w-14 h-14 rounded-2xl bg-indigo-500/10 text-indigo-400 flex items-center justify-center mx-auto mb-4 border border-indigo-500/20">
+            <Rocket className="w-7 h-7" />
+          </div>
+          <h2 className="text-base font-bold text-white mb-2">Henüz Tanımlı Müşteri / Marka Yok</h2>
+          <p className="text-xs text-slate-400 leading-relaxed mb-6">
+            Meta Advantage+, Google Performance Max ve TikTok reklam mimarisini otonom olarak yayına almak için önce ajansınıza bir müşteri veya reklam hesabı eklemelisiniz.
+          </p>
+          <div className="p-3 rounded-xl bg-[#121826] border border-[#1f293d] text-left text-xs text-slate-300 mb-6 space-y-1">
+            <div className="font-semibold text-white">Nasıl Başlanır?</div>
+            <div className="text-[11px] text-slate-400">1. Sol menüden <strong>Müşteriler</strong> sekmesine tıklayın.</div>
+            <div className="text-[11px] text-slate-400">2. <strong>+ Yeni Müşteri Ekle</strong> butonu ile gerçek markanızı kaydedin.</div>
+            <div className="text-[11px] text-slate-400">3. Markanız kaydedildikten sonra otonom medya bütçelendirme bu ekranda aktifleşir.</div>
+          </div>
+        </div>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Controls: Product & Budget */}
@@ -190,9 +180,9 @@ export default function AutonomousMediaBuyer({ activeClientName = '' }: Autonomo
                 onChange={(e) => setTargetClient(e.target.value)}
                 className="w-full bg-[#121826] border border-[#1f293d] rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-indigo-500 font-bold"
               >
-                <option value="Mandalin Clean (Temizlik & Hijyen)">🍊 Mandalin Clean (Koltuk & Ev Temizliği)</option>
-                <option value="İgeAds / igesaturkiye (B2B & ROAS)">⚡ İgeAds / igesaturkiye (B2B Büyüme)</option>
-                <option value="Velvet Couture (Deri Giyim & E-Ticaret)">🧥 Velvet Couture (Lüks Deri Giyim)</option>
+                {clients.map(c => (
+                  <option key={c.id} value={c.name}>{c.name}</option>
+                ))}
               </select>
             </div>
 

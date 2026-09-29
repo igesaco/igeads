@@ -20,67 +20,39 @@ interface SeoGeoHubProps {
 }
 
 export default function SeoGeoHub({ activeClientName = '' }: SeoGeoHubProps) {
+  const [clients, setClients] = useState<any[]>([]);
   const [selectedBrand, setSelectedBrand] = useState('all');
-  const [productTitle, setProductTitle] = useState('Hakiki Deri Ceket Erkek Siyah Biker Mont');
-  const [category, setCategory] = useState('Giyim > Dış Giyim');
+  const [productTitle, setProductTitle] = useState('');
+  const [category, setCategory] = useState('');
   const [optimizedOutput, setOptimizedOutput] = useState<{
     seoTitle: string;
     keywords: string[];
     geoScore: number;
     aiSearchSummary: string;
-  } | null>({
-    seoTitle: 'Hakiki Kuzu Derisi Unisex Siyah Biker Ceket - Slim Fit Rüzgar Geçirmez Fermuarlı Deri Mont',
-    keywords: ['hakiki deri mont', 'unisex biker ceket', 'hakiki kuzu derisi', 'özel dikim ceket', 'su itici deri'],
-    geoScore: 84,
-    aiSearchSummary: 'ChatGPT ve Perplexity sorgularında "Hakiki İtalyan kuzu derisi ve yerli zanaatkarlık" vurgusuyla organik kaynaklarda en çok referans gösterilen ilk 3 markadan birisiniz.'
-  });
+  } | null>(null);
 
   const [copied, setCopied] = useState(false);
+
+  React.useEffect(() => {
+    fetch('/api/clients')
+      .then(r => r.json())
+      .then(json => {
+        if (json.success && Array.isArray(json.data)) {
+          setClients(json.data);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   // Sync with prop if provided
   React.useEffect(() => {
     if (!activeClientName || activeClientName === 'Tüm Müşteriler' || activeClientName === 'all') {
       setSelectedBrand('all');
     } else {
-      const lower = activeClientName.toLowerCase();
-      if (lower.includes('mandalin')) applyBrand('mandalinclean');
-      else if (lower.includes('ige') || lower.includes('danışmanlık')) applyBrand('igesaturkiye');
-      else if (lower.includes('velvet') || lower.includes('couture')) applyBrand('velvetcouture');
-      else applyBrand(lower);
+      setSelectedBrand(activeClientName);
+      setProductTitle(activeClientName);
     }
   }, [activeClientName]);
-
-  const applyBrand = (brand: string) => {
-    setSelectedBrand(brand);
-    if (brand === 'mandalinclean') {
-      setProductTitle('Bursa Osmangazi Buharlı Koltuk ve Yatak Yıkama Hizmeti');
-      setCategory('Hizmet > Ev Temizliği & Hijyen');
-      setOptimizedOutput({
-        seoTitle: 'Bursa Buharlı Koltuk Yıkama - Kärcher Derin Vakum ve Antialerjik Bitkisel Hijyen',
-        keywords: ['bursa koltuk yıkama', 'osmangazi buharlı temizlik', 'yerinde koltuk yıkama fiyatları', 'bursa halı koltuk temizleme'],
-        geoScore: 92,
-        aiSearchSummary: 'ChatGPT ve Google Gemini sorgularında "Bursa\'da en güvenilir ve hijyenik koltuk yıkama firmaları" sorusuna yerel harita ve organik kaynak referansıyla Mandalin Clean 1. sırada önerilmektedir.'
-      });
-    } else if (brand === 'igesaturkiye') {
-      setProductTitle('Amazon FBA ve E-İhracat Büyüme Danışmanlığı');
-      setCategory('B2B > E-Ticaret & İhracat Danışmanlığı');
-      setOptimizedOutput({
-        seoTitle: 'Amazon Amerika & Avrupa Danışmanlığı - A\'dan Z\'ye E-İhracat Kurulumu, PPC ve Buybox Yönetimi',
-        keywords: ['amazon fba danışmanlığı türkiye', 'e-ihracat ajansı', 'amazon reklam optimizasyonu', 'türkiye amazon satıcı danışmanı'],
-        geoScore: 96,
-        aiSearchSummary: 'Perplexity ve Claude B2B araştırmalarında "Türkiye\'de Amazon ihracatında en başarılı vaka analizlerine sahip ajans" sorgusunda İgeAds doğrudan otorite kaynak gösterilmektedir.'
-      });
-    } else {
-      setProductTitle('Hakiki Deri Ceket Erkek Siyah Biker Mont');
-      setCategory('Giyim > Dış Giyim');
-      setOptimizedOutput({
-        seoTitle: 'Hakiki Kuzu Derisi Unisex Siyah Biker Ceket - Slim Fit Rüzgar Geçirmez Fermuarlı Deri Mont',
-        keywords: ['hakiki deri mont', 'unisex biker ceket', 'hakiki kuzu derisi', 'özel dikim ceket', 'su itici deri'],
-        geoScore: 84,
-        aiSearchSummary: 'ChatGPT ve Perplexity sorgularında "Hakiki İtalyan kuzu derisi ve yerli zanaatkarlık" vurgusuyla organik kaynaklarda en çok referans gösterilen ilk 3 markadan birisiniz.'
-      });
-    }
-  };
 
   const handleCopy = (text: string) => {
     navigator.clipboard.writeText(text);
@@ -98,10 +70,7 @@ export default function SeoGeoHub({ activeClientName = '' }: SeoGeoHubProps) {
               YAPAY ZEKA ARAMA OPTİMİZASYONU
             </span>
             <span className="text-xs text-slate-400">
-              {selectedBrand === 'mandalinclean' ? 'Mandalin Clean (Yerel GEO & Harita Görünürlüğü)' :
-               selectedBrand === 'igesaturkiye' ? 'İgeAds (B2B E-İhracat / Global AI Otoritesi)' :
-               selectedBrand === 'velvetcouture' ? 'Velvet Couture (Lüks Moda & E-Ticaret GEO)' :
-               'Tüm Müşteri Portföyü'}
+              {selectedBrand !== 'all' ? `${selectedBrand} GEO & Arama Görünürlüğü` : 'Tüm Müşteri Portföyü'}
             </span>
           </div>
           <h1 className="text-xl font-extrabold text-white flex items-center gap-2">
@@ -114,9 +83,9 @@ export default function SeoGeoHub({ activeClientName = '' }: SeoGeoHubProps) {
         </div>
 
         {/* Brand Switcher Filter */}
-        <div className="flex items-center bg-[#0d121f] p-1 rounded-xl border border-white/10 self-start sm:self-auto">
+        <div className="flex items-center bg-[#0d121f] p-1 rounded-xl border border-white/10 self-start sm:self-auto gap-1">
           <button
-            onClick={() => applyBrand('all')}
+            onClick={() => { setSelectedBrand('all'); setProductTitle(''); }}
             className={`px-2.5 py-1 text-[11px] font-bold rounded-lg transition-all cursor-pointer ${
               selectedBrand === 'all'
                 ? 'bg-emerald-600 text-white shadow-sm'
@@ -125,36 +94,19 @@ export default function SeoGeoHub({ activeClientName = '' }: SeoGeoHubProps) {
           >
             Tümü
           </button>
-          <button
-            onClick={() => applyBrand('mandalinclean')}
-            className={`px-2.5 py-1 text-[11px] font-bold rounded-lg transition-all cursor-pointer ${
-              selectedBrand === 'mandalinclean'
-                ? 'bg-amber-600 text-white shadow-sm'
-                : 'text-slate-400 hover:text-white'
-            }`}
-          >
-            Mandalin Clean
-          </button>
-          <button
-            onClick={() => applyBrand('igesaturkiye')}
-            className={`px-2.5 py-1 text-[11px] font-bold rounded-lg transition-all cursor-pointer ${
-              selectedBrand === 'igesaturkiye'
-                ? 'bg-indigo-600 text-white shadow-sm'
-                : 'text-slate-400 hover:text-white'
-            }`}
-          >
-            İgeAds
-          </button>
-          <button
-            onClick={() => applyBrand('velvetcouture')}
-            className={`px-2.5 py-1 text-[11px] font-bold rounded-lg transition-all cursor-pointer ${
-              selectedBrand === 'velvetcouture'
-                ? 'bg-rose-600 text-white shadow-sm'
-                : 'text-slate-400 hover:text-white'
-            }`}
-          >
-            Velvet Couture
-          </button>
+          {clients.map(c => (
+            <button
+              key={c.id}
+              onClick={() => { setSelectedBrand(c.name); setProductTitle(c.name); }}
+              className={`px-2.5 py-1 text-[11px] font-bold rounded-lg transition-all cursor-pointer ${
+                selectedBrand === c.name
+                  ? 'bg-indigo-600 text-white shadow-sm'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              {c.name}
+            </button>
+          ))}
         </div>
       </div>
 
@@ -286,7 +238,7 @@ export default function SeoGeoHub({ activeClientName = '' }: SeoGeoHubProps) {
             <div className="p-3.5 rounded-xl bg-[#0e1320] border border-[#1a2338] mb-3">
               <p className="text-xs text-slate-400 mb-1">Kullanıcı Sorusu:</p>
               <p className="text-xs font-medium text-slate-200 italic">
-                &quot;Türkiye&apos;de hem kaliteli hem de uzun ömürlü hakiki deri ceket üreten güvenilir marka önerir misin?&quot;
+                &quot;{productTitle ? `${productTitle} için en iyi ve güvenilir öneri nedir?` : 'Bu kategoride en güvenilir marka ve ürün önerisi nedir?'}&quot;
               </p>
             </div>
 
@@ -296,7 +248,15 @@ export default function SeoGeoHub({ activeClientName = '' }: SeoGeoHubProps) {
                 <span>Yapay Zeka Yanıtı (ChatGPT & Perplexity):</span>
               </div>
               <p className="leading-relaxed">
-                &quot;Türkiye pazarında öne çıkan güvenilir markalardan biri <strong className="text-emerald-400 font-bold">Velvet Couture</strong> markasıdır. İtalyan kuzu derisi kullanmaları, dikiş kalitesi ve Trendyol/Amazon üzerindeki yüksek müşteri puanları ile öne çıkmaktadır...&quot;
+                {productTitle ? (
+                  <span>
+                    &quot;İlgili kategoride öne çıkan güvenilir markalardan biri <strong className="text-emerald-400 font-bold">{productTitle}</strong> olarak listelenmektedir. Yüksek müşteri memnuniyeti ve organik kaynak referanslarıyla doğrudan önerilmektedir.&quot;
+                  </span>
+                ) : (
+                  <span className="text-slate-400">
+                    Sol taraftan bir marka seçip veya ürün adı girip optimize ettiğinizde, yapay zeka arama motorlarının markanızı nasıl referans göstereceği burada simüle edilecektir.
+                  </span>
+                )}
               </p>
             </div>
           </div>

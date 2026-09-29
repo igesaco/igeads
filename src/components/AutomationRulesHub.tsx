@@ -1,257 +1,139 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
-  Sliders, 
-  Plus, 
   Zap, 
-  ShieldCheck, 
-  CheckCircle2, 
-  TrendingUp, 
-  AlertTriangle, 
   Play, 
-  Pause,
-  ArrowRight,
-  Clock,
+  Pause, 
+  Plus, 
+  CheckCircle2, 
+  AlertTriangle, 
+  TrendingUp, 
+  Sliders, 
   Sparkles,
-  Layers
+  ArrowRight,
+  ShieldCheck,
+  RefreshCw,
+  BellRing
 } from 'lucide-react';
-import { useEffect } from 'react';
-import { mockAutomationRules } from '../data/mockData';
 import { AutomationRule } from '../types';
 
 interface AutomationRulesHubProps {
   activeClientName?: string;
 }
 
+const defaultUniversalRules: AutomationRule[] = [
+  {
+    id: 'rule-def-1',
+    name: '🛡️ Pazaryeri Stok Kalkanı & Kâr Güvencesi',
+    trigger: 'Trendyol / Amazon Envanter API',
+    condition: 'Ürün varyant stoğu < 5 kaldığında',
+    action: 'Meta & Google Ads ilgili ürün reklam setini anında duraklat',
+    enabled: true,
+    timesTriggered: 0,
+    lastRun: 'Hazır / Dinlemede',
+    category: 'stock_guard'
+  },
+  {
+    id: 'rule-def-2',
+    name: '🔥 Yüksek ROAS Otomatik Bütçe Ölçekleme (Scale)',
+    trigger: 'Meta Ads & Google Ads Günlük Raporu',
+    condition: 'Son 3 günlük ROAS > 4.5x ve Harcama > ₺500 olduğunda',
+    action: 'Kampanya günlük bütçesini %20 kademeli artır',
+    enabled: true,
+    timesTriggered: 0,
+    lastRun: 'Hazır / Dinlemede',
+    category: 'budget_guard'
+  },
+  {
+    id: 'rule-def-3',
+    name: '⚠️ Reklam Yorgunluğu (Ad Fatigue) Uyarısı',
+    trigger: 'Kreatif Frekans Takip Modülü',
+    condition: 'Haftalık frekans > 3.8 ve CTR < %0.8 olduğunda',
+    action: 'AI Kreatif Stüdyosu yeni video/görsel varyasyonları üretsin',
+    enabled: true,
+    timesTriggered: 0,
+    lastRun: 'Hazır / Dinlemede',
+    category: 'creative_guard'
+  }
+];
+
 export default function AutomationRulesHub({ activeClientName = '' }: AutomationRulesHubProps) {
+  const [clients, setClients] = useState<any[]>([]);
   const [selectedBrand, setSelectedBrand] = useState<string>('all');
-  const [rules, setRules] = useState<AutomationRule[]>(mockAutomationRules);
+  const [rules, setRules] = useState<AutomationRule[]>(defaultUniversalRules);
   const [isCreatingRule, setIsCreatingRule] = useState(false);
+
+  // New rule form states
+  const [newRuleName, setNewRuleName] = useState('');
+  const [triggerSource, setTriggerSource] = useState('trendyol_stock');
+  const [conditionValue, setConditionValue] = useState('10');
+  const [actionTarget, setActionTarget] = useState('pause_ads');
+
+  // Fetch real clients
+  useEffect(() => {
+    fetch('/api/clients')
+      .then(r => r.json())
+      .then(json => {
+        if (json.success && Array.isArray(json.data)) {
+          setClients(json.data);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   // Sync with prop if provided
   useEffect(() => {
-    if (!activeClientName || activeClientName === 'Tüm Müşteriler' || activeClientName === 'all') {
-      setSelectedBrand('all');
+    if (activeClientName && activeClientName !== 'Tüm Müşteriler' && activeClientName !== 'all') {
+      setSelectedBrand(activeClientName);
     } else {
-      const lower = activeClientName.toLowerCase();
-      if (lower.includes('mandalin')) setSelectedBrand('mandalinclean');
-      else if (lower.includes('ige') || lower.includes('danışmanlık')) setSelectedBrand('igesaturkiye');
-      else if (lower.includes('velvet') || lower.includes('couture')) setSelectedBrand('velvetcouture');
-      else setSelectedBrand(lower);
+      setSelectedBrand('all');
     }
   }, [activeClientName]);
 
-  // Brand-tailored rules
-  const brandRulesMap: Record<string, AutomationRule[]> = {
-    mandalinclean: [
-      {
-        id: 'rule-mc-1',
-        name: '🌧️ Yağmurlu Günlerde Randevu & Bütçe Artışı',
-        trigger: 'Hava Durumu API (Bursa/Osmangazi = Yağmurlu)',
-        condition: 'Yağmur ihtimali > %70 olduğunda',
-        action: 'Koltuk & Yatak Yıkama Google & Meta bütçesini %35 artır',
-        enabled: true,
-        timesTriggered: 18,
-        lastRun: 'Dün 14:20',
-        category: 'budget_guard'
-      },
-      {
-        id: 'rule-mc-2',
-        name: '🛑 Günlük 25 Randevu Kapasite Doluluk Kalkanı',
-        trigger: 'Randevu Yönetim Sistemi (Slot Doluluk)',
-        condition: 'Mevcut gün için boş slot sayısı = 0 olduğunda',
-        action: 'Meta Lead Form ve WhatsApp reklamlarını anında duraklat',
-        enabled: true,
-        timesTriggered: 12,
-        lastRun: '3 gün önce',
-        category: 'stock_guard'
-      },
-      {
-        id: 'rule-mc-3',
-        name: '🌙 Gece WhatsApp Otonom Randevu Rezervasyonu',
-        trigger: 'Gelen WhatsApp Mesajı (22:00 - 08:00)',
-        condition: 'Müşteri "fiyat" veya "randevu" sorduğunda',
-        action: 'AI Auto-Closer ertesi gün saat 10:00 ve 14:00 slotunu teklif edip depozito linki göndersin',
-        enabled: true,
-        timesTriggered: 29,
-        lastRun: 'Dün gece 23:45',
-        category: 'creative_guard'
-      }
-    ],
-    igesaturkiye: [
-      {
-        id: 'rule-ige-1',
-        name: '🎯 Amazon Danışmanlığı CAPI Lead Maliyeti Kalkanı',
-        trigger: 'Meta B2B Lead Kampanyası CPL',
-        condition: 'Form başı maliyet > ₺220 olduğunda',
-        action: 'Geniş kitleyi durdur, İhracatçı Birlikleri LAL %1 kitlesine odaklan',
-        enabled: true,
-        timesTriggered: 8,
-        lastRun: '2 gün önce',
-        category: 'budget_guard'
-      },
-      {
-        id: 'rule-ige-2',
-        name: '📅 Kurucu Strateji Takvimi Boşluk Doldurucu',
-        trigger: 'Cal.com Ajans Randevu Takvimi',
-        condition: 'Gelecek 3 gün boş slot oranı > %30 olduğunda',
-        action: 'Google Search "Amazon FBA Danışmanlığı" bütçesini %25 ölçeklendir',
-        enabled: true,
-        timesTriggered: 14,
-        lastRun: 'Dün 11:30',
-        category: 'budget_guard'
-      },
-      {
-        id: 'rule-ige-3',
-        name: '🚨 VIP B2B İhracatçı Lead Anlık WhatsApp Bildirimi',
-        trigger: 'Gelen B2B Form (Ciro > $100.000/yıl)',
-        condition: 'Yıllık ihracat veya yurt içi ciro beyanı yüksek ise',
-        action: 'Ajans Kurucusuna ve Kıdemli Stratejiste anında öncelikli WhatsApp alarmı düşür',
-        enabled: true,
-        timesTriggered: 31,
-        lastRun: 'Bugün 15:10',
-        category: 'creative_guard'
-      }
-    ],
-    velvetcouture: [
-      {
-        id: 'rule-vc-1',
-        name: '🧥 Trendyol & İkas Beden/Stok Tükendi Kalkanı',
-        trigger: 'Trendyol & İkas Envanter API (S/M Beden)',
-        condition: 'Hakiki Deri Biker Ceket stok adedi < 3 olduğunda',
-        action: 'Meta DPA dinamik katalog reklamından bu varyantı kaldır',
-        enabled: true,
-        timesTriggered: 24,
-        lastRun: 'Bugün 12:40',
-        category: 'stock_guard'
-      },
-      {
-        id: 'rule-vc-2',
-        name: '🚀 Gün İçi ROAS Patlaması Bütçe Ölçeklendirici',
-        trigger: 'Meta Ads Manager Gerçek Zamanlı ROAS',
-        condition: 'Son 6 saatlik kümülatif ROAS > 6.0x olduğunda',
-        action: 'Günlük kampanya bütçesini otomatik olarak %20 artır',
-        enabled: true,
-        timesTriggered: 19,
-        lastRun: 'Dün 19:15',
-        category: 'budget_guard'
-      },
-      {
-        id: 'rule-vc-3',
-        name: '🔄 Kreatif Frekans & Yorulma Dedektörü',
-        trigger: 'Reels Reklam Frekansı & CTR',
-        condition: 'Frekans > 3.8 ve CTR < %1.10 olduğunda',
-        action: 'Yorulan videoyu duraklat ve B-Roll yedek varyantı yayına al',
-        enabled: true,
-        timesTriggered: 16,
-        lastRun: '3 gün önce',
-        category: 'creative_guard'
-      }
-    ]
+  const toggleRule = (id: string) => {
+    setRules(prev => prev.map(r => r.id === id ? { ...r, enabled: !r.enabled } : r));
   };
 
-  // Combine or filter rules
-  const displayedRules = selectedBrand === 'all' 
-    ? (rules.length > 0 ? rules : mockAutomationRules)
-    : (brandRulesMap[selectedBrand] || rules);
-
-  // New Rule Builder State
-  const [newRuleName, setNewRuleName] = useState('');
-  const [triggerSource, setTriggerSource] = useState('trendyol_stock');
-  const [conditionValue, setConditionValue] = useState('5');
-  const [actionTarget, setActionTarget] = useState('pause_ads');
-
-  const fetchRules = async () => {
-    try {
-      const res = await fetch('/api/rules');
-      const data = await res.json();
-      if (data?.data && Array.isArray(data.data) && data.data.length > 0) {
-        const mapped = data.data.map((r: any) => ({
-          id: r.id,
-          name: r.title || r.name,
-          trigger: r.trigger,
-          condition: r.condition || 'Otomatik koşul sağlandığında',
-          action: r.action,
-          enabled: r.enabled,
-          timesTriggered: r.timesTriggered || 12,
-          lastRun: r.lastTriggered || 'Az önce',
-          category: r.category || 'stock_guard'
-        }));
-        setRules(mapped);
-      }
-    } catch (e) {
-      console.warn('Could not load live rules, using fallback', e);
-    }
-  };
-
-  useEffect(() => {
-    fetchRules();
-  }, []);
-
-  const toggleRule = async (id: string) => {
-    const current = displayedRules.find(r => r.id === id);
-    const newEnabled = !current?.enabled;
-
-    setRules(prev => prev.map(r => {
-      if (r.id === id) {
-        return { ...r, enabled: newEnabled };
-      }
-      return r;
-    }));
-
-    try {
-      await fetch('/api/rules', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id, enabled: newEnabled })
-      });
-    } catch (err) {
-      console.error('Failed to toggle rule:', err);
-    }
-  };
-
-  const handleSaveRule = async (e: React.FormEvent) => {
+  const handleSaveRule = (e: React.FormEvent) => {
     e.preventDefault();
-    const ruleTitle = newRuleName || 'Özel Otonom Kural';
-    const ruleTrigger = triggerSource === 'trendyol_stock' ? 'Stok / Envanter Seviyesi' : 
-                        triggerSource === 'meta_roas' ? 'Meta Kampanya ROAS' : 'TikTok Reklam Frekansı';
-    const ruleCondition = `Değer < ${conditionValue} olduğunda`;
-    const ruleAction = actionTarget === 'pause_ads' ? 'İlgili reklam setlerini duraklat' :
-                       actionTarget === 'scale_budget' ? 'Günlük bütçeyi %25 artır' : 'WhatsApp Bildirimi Gönder';
+    if (!newRuleName.trim()) return;
+
+    let triggerText = 'Pazaryeri Stok API';
+    let condText = `Stok < ${conditionValue} olduğunda`;
+    let actText = 'Reklamları duraklat';
+
+    if (triggerSource === 'meta_roas') {
+      triggerText = 'Meta Ads ROAS';
+      condText = `ROAS < ${conditionValue}x olduğunda`;
+      actText = 'Bütçeyi %20 azalt';
+    } else if (triggerSource === 'tiktok_burnout') {
+      triggerText = 'Kreatif Frekansı';
+      condText = `Frekans > ${conditionValue} olduğunda`;
+      actText = 'Yeni varyasyon yükle';
+    }
+
+    if (actionTarget === 'scale_budget') actText = 'Bütçeyi %25 artır';
+    else if (actionTarget === 'notify_whatsapp') actText = 'WhatsApp acil uyarı gönder';
 
     const newRule: AutomationRule = {
       id: `rule-${Date.now()}`,
-      name: ruleTitle,
-      trigger: ruleTrigger,
-      condition: ruleCondition,
-      action: ruleAction,
+      name: newRuleName,
+      trigger: triggerText,
+      condition: condText,
+      action: actText,
       enabled: true,
       timesTriggered: 0,
-      lastRun: 'Yeni Oluşturuldu',
-      category: 'stock_guard'
+      lastRun: 'Yeni eklendi',
+      category: 'budget_guard'
     };
-    
-    setRules([newRule, ...rules]);
+
+    setRules(prev => [newRule, ...prev]);
     setIsCreatingRule(false);
     setNewRuleName('');
-
-    try {
-      await fetch('/api/rules', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title: ruleTitle,
-          trigger: `${ruleTrigger} (${ruleCondition})`,
-          action: ruleAction,
-          category: 'stock_guard',
-          enabled: true
-        })
-      });
-    } catch (err) {
-      console.error('Failed to save rule to API:', err);
-    }
   };
+
+  const totalTriggered = rules.reduce((acc, r) => acc + (r.timesTriggered || 0), 0);
 
   return (
     <div className="space-y-6">
@@ -263,10 +145,7 @@ export default function AutomationRulesHub({ activeClientName = '' }: Automation
               Otonom Bot 7/24
             </span>
             <span className="text-xs text-slate-400">
-              {selectedBrand === 'mandalinclean' ? 'Mandalin Clean (Yerel Hizmet / Koltuk Yıkama)' :
-               selectedBrand === 'igesaturkiye' ? 'İgeAds (B2B E-İhracat / Danışmanlık)' :
-               selectedBrand === 'velvetcouture' ? 'Velvet Couture (Lüks Giyim & Deri Moda)' :
-               'Tüm Müşteri Portföyü (Konsolide)'}
+              {selectedBrand !== 'all' ? `${selectedBrand} Otomasyon Kuralları` : 'Tüm Müşteri Portföyü (Konsolide)'}
             </span>
           </div>
           <h1 className="text-xl font-extrabold text-white flex items-center gap-2">
@@ -274,13 +153,13 @@ export default function AutomationRulesHub({ activeClientName = '' }: Automation
             <span>Otonom Kural & Otomasyon Motoru (Rules Engine)</span>
           </h1>
           <p className="text-xs text-slate-400">
-            Siz uyurken stok durumuna, kârlılığa ve hava durumu/randevu doluluğuna göre reklamlarınızı yöneten yapay zeka kuralları.
+            Siz uyurken stok durumuna, kârlılığa ve hedef metriklere göre reklamlarınızı yöneten yapay zeka kuralları.
           </p>
         </div>
 
         <div className="flex items-center gap-3">
           {/* Brand Switcher Filter */}
-          <div className="flex items-center bg-[#0d121f] p-1 rounded-xl border border-white/10">
+          <div className="flex items-center bg-[#0d121f] p-1 rounded-xl border border-white/10 self-start sm:self-auto gap-1">
             <button
               onClick={() => setSelectedBrand('all')}
               className={`px-2.5 py-1 text-[11px] font-bold rounded-lg transition-all cursor-pointer ${
@@ -291,36 +170,19 @@ export default function AutomationRulesHub({ activeClientName = '' }: Automation
             >
               Tümü
             </button>
-            <button
-              onClick={() => setSelectedBrand('mandalinclean')}
-              className={`px-2.5 py-1 text-[11px] font-bold rounded-lg transition-all cursor-pointer ${
-                selectedBrand === 'mandalinclean'
-                  ? 'bg-amber-600 text-white shadow-sm'
-                  : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              Mandalin Clean
-            </button>
-            <button
-              onClick={() => setSelectedBrand('igesaturkiye')}
-              className={`px-2.5 py-1 text-[11px] font-bold rounded-lg transition-all cursor-pointer ${
-                selectedBrand === 'igesaturkiye'
-                  ? 'bg-indigo-600 text-white shadow-sm'
-                  : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              İgeAds
-            </button>
-            <button
-              onClick={() => setSelectedBrand('velvetcouture')}
-              className={`px-2.5 py-1 text-[11px] font-bold rounded-lg transition-all cursor-pointer ${
-                selectedBrand === 'velvetcouture'
-                  ? 'bg-rose-600 text-white shadow-sm'
-                  : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              Velvet Couture
-            </button>
+            {clients.map(c => (
+              <button
+                key={c.id}
+                onClick={() => setSelectedBrand(c.name)}
+                className={`px-2.5 py-1 text-[11px] font-bold rounded-lg transition-all cursor-pointer ${
+                  selectedBrand === c.name
+                    ? 'bg-indigo-600 text-white shadow-sm'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                {c.name}
+              </button>
+            ))}
           </div>
 
           <button 
@@ -338,7 +200,7 @@ export default function AutomationRulesHub({ activeClientName = '' }: Automation
         <div className="glass-panel p-5 rounded-2xl border-indigo-500/30">
           <span className="text-xs font-semibold text-slate-400">Aktif Otonom Kurallar</span>
           <p className="text-2xl font-black text-white mt-1">
-            {displayedRules.filter(r => r.enabled).length} Kural 7/24 Nöbette
+            {rules.filter(r => r.enabled).length} Kural 7/24 Nöbette
           </p>
           <p className="text-[11px] text-emerald-400 mt-1 flex items-center gap-1">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
@@ -348,35 +210,29 @@ export default function AutomationRulesHub({ activeClientName = '' }: Automation
 
         <div className="glass-panel p-5 rounded-2xl">
           <span className="text-xs font-semibold text-slate-400">Önlenen Bütçe İsrafı / Kurtarılan Ciro</span>
-          <p className="text-2xl font-black text-emerald-400 mt-1">
-            {selectedBrand === 'mandalinclean' ? '₺18.400' :
-             selectedBrand === 'igesaturkiye' ? '₺82.500' :
-             selectedBrand === 'velvetcouture' ? '₺54.200' : '₺155.100'}
-          </p>
-          <p className="text-[11px] text-slate-400 mt-1">
-            Kapasite aşımı, stok tükenmesi veya yüksek maliyetli tıklamalara karşı korundu.
-          </p>
+          <p className="text-2xl font-black text-emerald-400 mt-1">₺0</p>
+          <span className="text-[11px] text-slate-400 mt-1">
+            Canlı kural tetiklenmesi sonrası kurtarılan tutar burada raporlanır.
+          </span>
         </div>
 
         <div className="glass-panel p-5 rounded-2xl">
           <span className="text-xs font-semibold text-slate-400">Toplam Otonom Müdahale</span>
-          <p className="text-2xl font-black text-indigo-400 mt-1">
-            {displayedRules.reduce((acc, r) => acc + (r.timesTriggered || 0), 0)} Kez
-          </p>
-          <p className="text-[11px] text-slate-400 mt-1">
+          <p className="text-2xl font-black text-indigo-400 mt-1">{totalTriggered} Kez</p>
+          <span className="text-[11px] text-slate-400 mt-1">
             İnsan müdahalesi olmadan 7/24 otomatik gerçekleştirilen eylemler.
-          </p>
+          </span>
         </div>
       </div>
 
       {/* Rules List */}
       <div className="glass-panel rounded-2xl p-6">
         <h2 className="text-sm font-bold text-white mb-4">
-          Mevcut Kurallar & Otonom Tetikleyiciler ({selectedBrand === 'all' ? 'Tüm Portföy' : selectedBrand.toUpperCase()})
+          Mevcut Kurallar & Otonom Tetikleyiciler ({selectedBrand === 'all' ? 'Tüm Portföy' : selectedBrand})
         </h2>
 
         <div className="space-y-3.5">
-          {displayedRules.map((rule) => (
+          {rules.map((rule) => (
             <div 
               key={rule.id}
               className={`p-4 rounded-xl border transition-all ${
@@ -460,7 +316,7 @@ export default function AutomationRulesHub({ activeClientName = '' }: Automation
                 <input 
                   type="text"
                   required
-                  placeholder="Örn: Stok 5 altına inince Meta Ceket reklamını durdur"
+                  placeholder="Örn: Stok 5 altına inince reklamı durdur"
                   value={newRuleName}
                   onChange={(e) => setNewRuleName(e.target.value)}
                   className="w-full bg-[#141b2b] border border-[#212b42] rounded-xl px-3 py-2 text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
