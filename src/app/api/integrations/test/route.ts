@@ -19,33 +19,33 @@ export async function POST(request: Request) {
       case 'meta':
       case 'int-meta':
         testResult = await testMetaConnection({
-          accessToken: credentials?.accessToken || credentials?.value || '',
-          adAccountId: credentials?.adAccountId || credentials?.accountId || 'act_1092841928'
+          accessToken: credentials?.accessToken || credentials?.['Sistem Kullanıcısı Token (EAA...)'] || credentials?.token || credentials?.value || '',
+          adAccountId: credentials?.adAccountId || credentials?.['Reklam Hesabı ID (act_...)'] || credentials?.accountId || ''
         });
         break;
 
       case 'trendyol':
       case 'int-trendyol':
         testResult = await testTrendyolConnection({
-          supplierId: credentials?.supplierId || credentials?.sellerId || '198421',
-          apiKey: credentials?.apiKey || '',
-          apiSecret: credentials?.apiSecret || ''
+          supplierId: credentials?.supplierId || credentials?.['Satıcı ID (SupplierId)'] || credentials?.sellerId || '',
+          apiKey: credentials?.apiKey || credentials?.['API Anahtarı'] || '',
+          apiSecret: credentials?.apiSecret || credentials?.['API Gizli Anahtarı (Secret)'] || ''
         });
         break;
 
       case 'google':
       case 'int-google':
         testResult = await testGoogleAdsConnection({
-          customerId: credentials?.customerId || '412-894-1029',
-          refreshToken: credentials?.refreshToken || ''
+          customerId: credentials?.customerId || credentials?.['Google Ads Müşteri ID'] || '',
+          refreshToken: credentials?.refreshToken || credentials?.['Geliştirici Jetonu (Developer Token)'] || ''
         });
         break;
 
       case 'whatsapp':
       case 'int-whatsapp':
         testResult = await testWhatsAppConnection({
-          phoneNumberId: credentials?.phoneNumberId || '',
-          systemUserToken: credentials?.systemUserToken || ''
+          phoneNumberId: credentials?.phoneNumberId || credentials?.['WhatsApp Phone Number ID'] || '',
+          systemUserToken: credentials?.systemUserToken || credentials?.['Meta System User Token'] || credentials?.token || ''
         });
         break;
 
