@@ -22,7 +22,9 @@ import { IntegrationAccount } from '../types';
 export default function IntegrationsHub() {
   const [integrations, setIntegrations] = useState<IntegrationAccount[]>(mockIntegrations);
   const [testingId, setTestingId] = useState<string | null>(null);
+  const [syncingId, setSyncingId] = useState<string | null>(null);
   const [testResult, setTestResult] = useState<{ id: string; success: boolean; message: string; pingMs?: number } | null>(null);
+  const [syncResult, setSyncResult] = useState<{ id: string; success: boolean; message: string } | null>(null);
   const [filterCategory, setFilterCategory] = useState<'all' | 'ads' | 'marketplace' | 'messaging'>('all');
   const [editingItem, setEditingItem] = useState<IntegrationAccount | null>(null);
   const [editForm, setEditForm] = useState<Record<string, string>>({});
@@ -52,6 +54,7 @@ export default function IntegrationsHub() {
   const handleTestConnection = async (item: IntegrationAccount) => {
     setTestingId(item.id);
     setTestResult(null);
+    setSyncResult(null);
 
     const providerKey = item.id.replace(/^int-/, '');
     const creds: Record<string, string> = {};
@@ -77,14 +80,23 @@ export default function IntegrationsHub() {
           pingMs: data.pingMs || 42,
           message: data.accountName 
             ? `Bağlantı Doğrulandı: ${data.accountName} (${data.pingMs}ms)`
-            : `API Bağlantısı Başarılı (${data.pingMs || 35}ms)`
+            : (data.message || `API Bağlantısı Başarılı (${data.pingMs || 35}ms)`)
         });
+        setIntegrations(prev => prev.map(i => i.id === item.id ? { 
+          ...i, 
+          connected: true,
+          lastSync: 'Şimdi doğrulandı'
+        } : i));
       } else {
         setTestResult({
           id: item.id,
           success: false,
           message: data.error || 'Bağlantı sağlanamadı'
         });
+        setIntegrations(prev => prev.map(i => i.id === item.id ? { 
+          ...i, 
+          connected: false
+        } : i));
       }
     } catch (err: any) {
       setTestResult({
@@ -94,6 +106,45 @@ export default function IntegrationsHub() {
       });
     } finally {
       setTestingId(null);
+    }
+  };
+
+  const handleSyncConnection = async (item: IntegrationAccount) => {
+    setSyncingId(item.id);
+    setSyncResult(null);
+
+    const providerKey = item.id.replace(/^int-/, '');
+    try {
+      const res = await fetch('/api/integrations/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ provider: providerKey })
+      });
+      const data = await res.json();
+
+      if (data.success) {
+        setSyncResult({
+          id: item.id,
+          success: true,
+          message: data.message || 'Veriler eşitlendi'
+        });
+        window.dispatchEvent(new CustomEvent('product_updated'));
+        window.dispatchEvent(new CustomEvent('campaign_updated'));
+      } else {
+        setSyncResult({
+          id: item.id,
+          success: false,
+          message: data.error || 'Eşitleme başarısız oldu'
+        });
+      }
+    } catch (err: any) {
+      setSyncResult({
+        id: item.id,
+        success: false,
+        message: err.message || 'Ağ hatası'
+      });
+    } finally {
+      setSyncingId(null);
     }
   };
 
@@ -256,20 +307,44 @@ export default function IntegrationsHub() {
               </div>
             </div>
 
-            <div className="flex items-center justify-between pt-4 border-t border-[#1a2338] mt-4">
-              <button 
-                onClick={() => handleTestConnection(item)}
-                disabled={testingId === item.id}
-                className="px-3.5 py-1.5 rounded-lg bg-[#141b2a] hover:bg-[#1a2338] text-slate-300 hover:text-white border border-[#212b42] text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
-              >
-                <RefreshCw className={`w-3.5 h-3.5 text-cyan-400 ${testingId === item.id ? 'animate-spin' : ''}`} />
-                <span>{testingId === item.id ? 'Canlı Sunucu Sınanıyor...' : 'Bağlantıyı Canlı Sına'}</span>
-              </button>
+            <div className="pt-4 border-t border-[#1a2338] mt-4 space-y-2">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <button 
+                  onClick={() => handleTestConnection(item)}
+                  disabled={testingId === item.id || syncingId === item.id}
+                  className="px-3 py-1.5 rounded-lg bg-[#141b2a] hover:bg-[#1a2338] text-slate-300 hover:text-white border border-[#212b42] text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 text-cyan-400 ${testingId === item.id ? 'animate-spin' : ''}`} />
+                  <span>{testingId === item.id ? 'Sınanıyor...' : 'Bağlantıyı Canlı Sına'}</span>
+                </button>
+
+                {(item.category === 'marketplace' || item.category === 'ads') && (
+                  <button 
+                    onClick={() => handleSyncConnection(item)}
+                    disabled={syncingId === item.id || testingId === item.id}
+                    className="px-3 py-1.5 rounded-lg bg-cyan-950/40 hover:bg-cyan-900/50 text-cyan-300 hover:text-cyan-200 border border-cyan-800/40 text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                  >
+                    <Zap className={`w-3.5 h-3.5 text-cyan-400 ${syncingId === item.id ? 'animate-spin' : ''}`} />
+                    <span>{syncingId === item.id ? 'Eşitleniyor...' : 'Verileri Canlı Eşitle'}</span>
+                  </button>
+                )}
+              </div>
 
               {testResult?.id === item.id && (
-                <div className={`text-[10px] font-bold flex items-center gap-1 ${testResult.success ? 'text-emerald-400' : 'text-rose-400'}`}>
-                  {testResult.success ? <CheckCircle2 className="w-3.5 h-3.5 shrink-0" /> : <AlertCircle className="w-3.5 h-3.5 shrink-0" />}
-                  <span className="truncate max-w-[200px]" title={testResult.message}>{testResult.message}</span>
+                <div className={`p-2 rounded-lg border text-xs font-medium flex items-start gap-1.5 ${
+                  testResult.success ? 'bg-emerald-950/30 border-emerald-500/30 text-emerald-400' : 'bg-rose-950/30 border-rose-500/30 text-rose-400'
+                }`}>
+                  {testResult.success ? <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5" /> : <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />}
+                  <span className="leading-snug">{testResult.message}</span>
+                </div>
+              )}
+
+              {syncResult?.id === item.id && (
+                <div className={`p-2 rounded-lg border text-xs font-medium flex items-start gap-1.5 ${
+                  syncResult.success ? 'bg-emerald-950/30 border-emerald-500/30 text-emerald-400' : 'bg-rose-950/30 border-rose-500/30 text-rose-400'
+                }`}>
+                  {syncResult.success ? <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5" /> : <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />}
+                  <span className="leading-snug">{syncResult.message}</span>
                 </div>
               )}
             </div>

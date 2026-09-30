@@ -142,8 +142,9 @@ export const mockIntegrations: any[] = [
     badgeColor: 'bg-slate-500/20 text-slate-400 border-slate-500/30',
     syncFrequency: 'Her 10 dakikada bir',
     fields: [
-      { label: 'Merchant ID', placeholder: 'hb-94182', value: '' },
-      { label: 'Entegratör Gizli Anahtarı', placeholder: 'hb_sec_...', value: '', isSecret: true }
+      { label: 'Merchant ID', placeholder: 'fbf7ec48-fd9c-4047-8a88-...', value: '' },
+      { label: 'API Kullanıcı Adı (Username)', placeholder: 'Varsayılan: Merchant ID ile aynı', value: '' },
+      { label: 'Entegratör Gizli Anahtarı', placeholder: 'hb_sec_... veya entegratör şifresi', value: '', isSecret: true }
     ]
   },
   {

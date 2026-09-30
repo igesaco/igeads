@@ -1,4 +1,16 @@
 import { PrismaClient } from '@prisma/client';
+import fs from 'fs';
+
+// Load .env.local if DATABASE_URL is not set
+if (!process.env.DATABASE_URL && fs.existsSync('.env.local')) {
+  const envContent = fs.readFileSync('.env.local', 'utf-8');
+  envContent.split('\n').forEach(line => {
+    const [k, ...v] = line.split('=');
+    if (k && v.length) {
+      process.env[k.trim()] = v.join('=').trim().replace(/^"(.*)"$/, '$1');
+    }
+  });
+}
 
 const prisma = new PrismaClient();
 
@@ -168,16 +180,117 @@ async function main() {
     ]
   });
 
-  // 2. Services & Products
+  // 2. Services & Marketplace Products
   await prisma.product.createMany({
     data: [
-      // Mandalin Clean
+      // Hepsiburada Products (Velvet Couture & Mandalin Clean)
+      {
+        id: 'prod-hb-1',
+        clientId: 'client-velvet',
+        name: 'Hakiki Deri Unisex Biker Ceket (Vintage Siyah)',
+        sku: 'HB-JKT-LTH-01',
+        marketplace: 'Hepsiburada',
+        stock: 38,
+        price: 2450,
+        buyboxPrice: 2450,
+        isBuybox: true,
+        returnRate: 2.1
+      },
+      {
+        id: 'prod-hb-2',
+        clientId: 'client-velvet',
+        name: 'Oversize Kaşmir Yün Palto (Camel)',
+        sku: 'HB-PLT-KSM-02',
+        marketplace: 'Hepsiburada',
+        stock: 14,
+        price: 3890,
+        buyboxPrice: 3890,
+        isBuybox: true,
+        returnRate: 1.8
+      },
+      {
+        id: 'prod-hb-3',
+        clientId: 'client-velvet',
+        name: 'El Yapımı İtalyan Deri Chelsea Bot (Acı Kahve)',
+        sku: 'HB-BOT-CHL-03',
+        marketplace: 'Hepsiburada',
+        stock: 6, // Kritik stok - Auto Halt Ads testi
+        price: 2890,
+        buyboxPrice: 2950,
+        isBuybox: false,
+        returnRate: 3.2
+      },
+      // Trendyol Products
+      {
+        id: 'prod-ty-1',
+        clientId: 'client-velvet',
+        name: 'Slim Fit İtalyan Kesim Blazer Ceket',
+        sku: 'TY-BLZ-SLM-01',
+        marketplace: 'Trendyol',
+        stock: 52,
+        price: 1850,
+        buyboxPrice: 1850,
+        isBuybox: true,
+        returnRate: 4.5
+      },
+      {
+        id: 'prod-ty-2',
+        clientId: 'client-velvet',
+        name: 'Premium Örgü Triko Balıkçı Kazak',
+        sku: 'TY-KZK-TRK-02',
+        marketplace: 'Trendyol',
+        stock: 8, // Kritik stok
+        price: 980,
+        buyboxPrice: 990,
+        isBuybox: true,
+        returnRate: 2.0
+      },
+      // Amazon TR Products
+      {
+        id: 'prod-amz-1',
+        clientId: 'client-velvet',
+        name: 'Su Geçirmez Termal Outdoor Mont (Haki)',
+        sku: 'AMZ-MNT-THM-01',
+        marketplace: 'Amazon',
+        stock: 24,
+        price: 3200,
+        buyboxPrice: 3150,
+        isBuybox: false,
+        returnRate: 1.5
+      },
+      // İdefix Products
+      {
+        id: 'prod-idx-1',
+        clientId: 'client-velvet',
+        name: 'Deri Kartlık ve Cüzdan Seti (Özel Ahşap Kutulu)',
+        sku: 'IDX-CZDN-SET-01',
+        marketplace: 'İdefix',
+        stock: 65,
+        price: 750,
+        buyboxPrice: 750,
+        isBuybox: true,
+        returnRate: 0.8
+      },
+      // N11 Products
+      {
+        id: 'prod-n11-1',
+        clientId: 'client-velvet',
+        name: 'Süet Deri Bel Kemeri (Antik Pirinç Tokalı)',
+        sku: 'N11-KMR-SUET-01',
+        marketplace: 'N11',
+        stock: 42,
+        price: 490,
+        buyboxPrice: 490,
+        isBuybox: true,
+        returnRate: 1.1
+      },
+      // Mandalin Clean Hijyen Hizmeti
       {
         id: 'prod-mandalin-1',
         clientId: 'client-mandalin',
         name: 'Mandalin Clean VIP Yerinde Koltuk Yıkama & Buharlı Dezenfeksiyon',
         sku: 'MNDLN-KLTK-01',
-        marketplace: 'Doğrudan Hizmet & Web',
+        marketplace: 'Hepsiburada',
         stock: 50,
         price: 1250,
         buyboxPrice: 1250,
@@ -189,38 +302,12 @@ async function main() {
         clientId: 'client-mandalin',
         name: 'Mandalin Clean Yatak & Baza Derin Alerjen Arındırma Hizmeti',
         sku: 'MNDLN-YTK-02',
-        marketplace: 'Doğrudan Hizmet & Web',
+        marketplace: 'Trendyol',
         stock: 40,
         price: 1400,
         buyboxPrice: 1400,
         isBuybox: true,
         returnRate: 0.2
-      },
-      // İgeAds
-      {
-        id: 'prod-ige-1',
-        clientId: 'client-ige',
-        name: 'İgeAds Otonom Reklam Optimizasyon & Büyüme Paketi',
-        sku: 'IGE-ADS-PRO',
-        marketplace: 'B2B Kurumsal & SaaS',
-        stock: 100,
-        price: 15000,
-        buyboxPrice: 15000,
-        isBuybox: true,
-        returnRate: 0.0
-      },
-      // Velvet Couture
-      {
-        id: 'prod-velvet-1',
-        clientId: 'client-velvet',
-        name: 'Hakiki Deri Unisex Biker Ceket (Siyah)',
-        sku: 'JKT-LEATHER-001',
-        marketplace: 'Trendyol & Amazon',
-        stock: 85,
-        price: 2199,
-        buyboxPrice: 2199,
-        isBuybox: true,
-        returnRate: 3.8
       }
     ]
   });

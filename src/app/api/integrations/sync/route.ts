@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { fetchMetaCampaigns } from '@/lib/integrations/meta';
 import { fetchTrendyolProducts } from '@/lib/integrations/trendyol';
+import { fetchHepsiburadaProducts } from '@/lib/integrations/hepsiburada';
 
 export async function POST(request: Request) {
   try {
@@ -140,6 +141,69 @@ export async function POST(request: Request) {
       return NextResponse.json({
         success: true,
         message: `Trendyol'dan ${savedCount} adet canlı ürün ve stok veritabanına eşitlendi.`,
+        syncedCount: savedCount
+      });
+    }
+
+    if (cleanProvider === 'hepsiburada') {
+      const merchantId = credentials.merchantId || credentials['Merchant ID'] || credentials['Mağaza ID'];
+      const secretKey = credentials.secretKey || credentials['Entegratör Gizli Anahtarı'] || credentials['Secret Key'] || credentials['API Şifresi'];
+      const serviceUsername = credentials.serviceUsername || credentials['API Kullanıcı Adı (Username)'];
+
+      if (!merchantId || !secretKey) {
+        return NextResponse.json({ success: false, error: 'Hepsiburada Merchant ID veya Gizli Anahtarı eksik.' }, { status: 400 });
+      }
+
+      let hbListings: any[] = [];
+      try {
+        hbListings = await fetchHepsiburadaProducts({ merchantId, secretKey, serviceUsername });
+      } catch (hbErr: any) {
+        return NextResponse.json({
+          success: false,
+          error: hbErr.message || 'Hepsiburada API servisi ile iletişim kurulamadı.'
+        }, { status: 400 });
+      }
+
+      let savedCount = 0;
+      for (const item of hbListings) {
+        const sku = item.hepsiburadaSku || item.merchantSku || item.listingId || `HB-${savedCount}`;
+        const name = item.merchantSku || item.hepsiburadaSku || `Hepsiburada Ürünü (${sku})`;
+        const price = Number(item.price) || 500;
+        const stock = Number(item.availableStock) || 0;
+        const isSalable = item.isSalable !== undefined ? Boolean(item.isSalable) : true;
+
+        await prisma.product.upsert({
+          where: { sku },
+          update: {
+            name,
+            price,
+            stock,
+            buyboxPrice: price,
+            isBuybox: isSalable,
+            marketplace: 'Hepsiburada'
+          },
+          create: {
+            sku,
+            name,
+            marketplace: 'Hepsiburada',
+            price,
+            stock,
+            buyboxPrice: price,
+            isBuybox: isSalable,
+            returnRate: 0.05
+          }
+        });
+        savedCount++;
+      }
+
+      await prisma.integrationConfig.update({
+        where: { provider: 'hepsiburada' },
+        data: { lastSync: new Date() }
+      });
+
+      return NextResponse.json({
+        success: true,
+        message: `Hepsiburada'dan ${savedCount} adet canlı ürün ve stok veritabanına eşitlendi.`,
         syncedCount: savedCount
       });
     }

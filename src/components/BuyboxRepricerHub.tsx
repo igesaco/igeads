@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   ShoppingBag, 
   TrendingDown, 
@@ -19,6 +19,40 @@ import { BuyboxItem } from '../types';
 export default function BuyboxRepricerHub() {
   const [items, setItems] = useState<BuyboxItem[]>(mockBuyboxItems);
   const [repriceSuccessId, setRepriceSuccessId] = useState<string | null>(null);
+
+  const fetchBuyboxProducts = async () => {
+    try {
+      const res = await fetch('/api/products');
+      const json = await res.json();
+      if (json?.data && Array.isArray(json.data) && json.data.length > 0) {
+        const mapped: BuyboxItem[] = json.data.map((p: any) => ({
+          id: p.id,
+          productTitle: p.name,
+          platform: (p.marketplace?.toLowerCase() as any) || 'hepsiburada',
+          myPrice: p.price,
+          buyboxPrice: p.buyboxPrice || p.price,
+          buyboxOwner: p.isBuybox ? 'Siz' : 'Rakip Mağaza',
+          hasBuybox: Boolean(p.isBuybox),
+          minAllowedPrice: Math.round(p.price * 0.85),
+          strategy: 'profit_maximize',
+          autoRepriceEnabled: true,
+          salesLostEstimate: p.isBuybox ? '0 TL (Buybox sizde)' : `₺${Math.round(p.price * 12)} /gün`
+        }));
+        setItems(mapped);
+      } else {
+        setItems([]);
+      }
+    } catch (e) {
+      console.warn('Failed to load buybox products', e);
+    }
+  };
+
+  useEffect(() => {
+    fetchBuyboxProducts();
+    const handleUpdate = () => fetchBuyboxProducts();
+    window.addEventListener('product_updated', handleUpdate);
+    return () => window.removeEventListener('product_updated', handleUpdate);
+  }, []);
 
   const toggleAutoReprice = (id: string) => {
     setItems(prev => prev.map(item => {

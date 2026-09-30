@@ -3,6 +3,7 @@ import { testMetaConnection } from '@/lib/integrations/meta';
 import { testTrendyolConnection } from '@/lib/integrations/trendyol';
 import { testGoogleAdsConnection } from '@/lib/integrations/google';
 import { testWhatsAppConnection } from '@/lib/integrations/whatsapp';
+import { testHepsiburadaConnection } from '@/lib/integrations/hepsiburada';
 
 export async function POST(request: Request) {
   try {
@@ -16,6 +17,14 @@ export async function POST(request: Request) {
     let testResult: any = { success: false, error: 'Bilinmeyen sağlayıcı' };
 
     switch (provider.toLowerCase()) {
+      case 'hepsiburada':
+      case 'int-hepsiburada':
+        testResult = await testHepsiburadaConnection({
+          merchantId: credentials?.merchantId || credentials?.['Merchant ID'] || credentials?.['Mağaza ID'] || credentials?.id || '',
+          secretKey: credentials?.secretKey || credentials?.['Entegratör Gizli Anahtarı'] || credentials?.['Secret Key'] || credentials?.['API Şifresi'] || credentials?.password || '',
+          serviceUsername: credentials?.serviceUsername || credentials?.['API Kullanıcı Adı (Username)'] || credentials?.username || ''
+        });
+        break;
       case 'meta':
       case 'int-meta':
         testResult = await testMetaConnection({
