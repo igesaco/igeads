@@ -19,7 +19,8 @@ import {
   Eye,
   SlidersHorizontal,
   Flame,
-  Check
+  Check,
+  Upload
 } from 'lucide-react';
 
 interface CreativeStudioHubProps {
@@ -57,7 +58,7 @@ export default function CreativeStudioHub({ activeClientName = '' }: CreativeStu
 
   // Real Image Generation states
   const [activeImageUrl, setActiveImageUrl] = useState<string>(
-    'https://image.pollinations.ai/prompt/professional%20upholstery%20steam%20cleaning%20on%20luxury%20modern%20couch%20penthouse%20living%20room%20spotless%20clean%208k%20commercial%20photography?width=1024&height=1024&nologo=true&seed=4215'
+    'https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=1400&auto=format&fit=crop&q=85'
   );
   const [imagePrompt, setImagePrompt] = useState<string>('Lüks salonda profesyonel buharlı koltuk yıkama, tertemiz parlak kumaş dokusu, 8K stüdyo ışığı');
   const [photoStyle, setPhotoStyle] = useState<'studio' | 'lifestyle' | 'luxury' | 'minimal' | 'cyber'>('studio');
@@ -68,10 +69,24 @@ export default function CreativeStudioHub({ activeClientName = '' }: CreativeStu
   const [imageGallery, setImageGallery] = useState<GeneratedImageItem[]>([
     {
       id: 'default-1',
-      url: 'https://image.pollinations.ai/prompt/professional%20upholstery%20steam%20cleaning%20on%20luxury%20modern%20couch%20penthouse%20living%20room%20spotless%20clean%208k%20commercial%20photography?width=1024&height=1024&nologo=true&seed=4215',
-      prompt: 'Lüks salonda buharlı koltuk temizliği',
+      url: 'https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=1400&auto=format&fit=crop&q=85',
+      prompt: 'Lüks salonda buharlı koltuk temizliği (Zümrüt Yeşili Koltuk)',
       style: 'studio',
-      timestamp: 'Hazır Şablon'
+      timestamp: 'Stüdyo 4K'
+    },
+    {
+      id: 'default-2',
+      url: 'https://images.unsplash.com/photo-1586023492125-27b2c045efd7?w=1400&auto=format&fit=crop&q=85',
+      prompt: 'Modern berjer temizliği ve kumaş bakımı',
+      style: 'studio',
+      timestamp: 'Detay 4K'
+    },
+    {
+      id: 'default-3',
+      url: 'https://images.unsplash.com/photo-1493663284031-b7e3aefcae8e?w=1400&auto=format&fit=crop&q=85',
+      prompt: 'Ferah rezidans oturma odası hijyeni',
+      style: 'lifestyle',
+      timestamp: 'Lifestyle 4K'
     }
   ]);
 
@@ -440,13 +455,50 @@ export default function CreativeStudioHub({ activeClientName = '' }: CreativeStu
     }
   };
 
-  // Direct Raw Photo Downloader
-  const handleDownloadRawPhoto = () => {
-    const link = document.createElement('a');
-    link.download = `ai-photo-${customProductTitle.toLowerCase().replace(/[^a-z0-9]/g, '-')}-${Date.now()}.jpg`;
-    link.href = activeImageUrl;
-    link.target = '_blank';
-    link.click();
+  // Direct Raw Photo Downloader (Forces direct file download, NEVER opens external tabs)
+  const handleDownloadRawPhoto = async () => {
+    try {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.src = activeImageUrl;
+
+      await new Promise((resolve) => {
+        img.onload = resolve;
+        img.onerror = resolve;
+      });
+
+      if (img.width && img.height) {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.naturalWidth || img.width;
+        canvas.height = img.naturalHeight || img.height;
+        const ctx = canvas.getContext('2d');
+        ctx?.drawImage(img, 0, 0);
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.95);
+        const link = document.createElement('a');
+        link.download = `igeads-urun-fotografi-${Date.now()}.jpg`;
+        link.href = dataUrl;
+        link.click();
+        return;
+      }
+    } catch (e) {
+      console.warn('Canvas raw photo download fallback:', e);
+    }
+
+    try {
+      const res = await fetch(activeImageUrl);
+      const blob = await res.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.download = `igeads-urun-fotografi-${Date.now()}.jpg`;
+      link.href = blobUrl;
+      link.click();
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 3000);
+    } catch {
+      const link = document.createElement('a');
+      link.download = `igeads-urun-fotografi-${Date.now()}.jpg`;
+      link.href = activeImageUrl;
+      link.click();
+    }
   };
 
   return (
@@ -523,30 +575,63 @@ export default function CreativeStudioHub({ activeClientName = '' }: CreativeStu
                 <span>1. Yapay Zeka Fotoğraf Üretim Motoru</span>
               </h2>
               <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
-                FLUX.1 SOTA
+                4K Stüdyo & AI
               </span>
             </div>
 
-            {/* Photo Prompt Input */}
+            {/* Photo Prompt Input & Actions */}
             <div>
               <div className="flex items-center justify-between mb-1.5">
                 <label className="text-xs text-slate-300 font-semibold flex items-center gap-1">
                   <span>Fotoğraf Açıklaması / Konsepti:</span>
                 </label>
-                <button
-                  type="button"
-                  onClick={() => {
-                    const preset = customProductTitle.toLowerCase().includes('koltuk') || customProductTitle.toLowerCase().includes('temizlik')
-                      ? 'Lüks geniş salonda buharlı profesyonel koltuk yıkama, pırıl pırıl temiz kumaş, 8k stüdyo çekimi'
-                      : customProductTitle.toLowerCase().includes('ceket') || customProductTitle.toLowerCase().includes('giyim')
-                      ? 'İtalyan tasarım lüks deri ceket, şık manken üzerinde Milano sokak çekimi, sinematik ışık, 8k'
-                      : `Ultra-realistic commercial product photography of ${customProductTitle}, luxury studio lighting, 8k`;
-                    setImagePrompt(preset);
-                  }}
-                  className="text-[10px] text-cyan-400 hover:text-cyan-300 font-medium cursor-pointer"
-                >
-                  Şablon Prompt Doldur
-                </button>
+                <div className="flex items-center gap-2">
+                  <label className="text-[10px] text-purple-400 hover:text-purple-300 font-bold flex items-center gap-1 cursor-pointer">
+                    <Upload className="w-3 h-3" />
+                    <span>Fotoğraf Yükle</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          const reader = new FileReader();
+                          reader.onload = (event) => {
+                            const b64 = event.target?.result as string;
+                            if (b64) {
+                              setActiveImageUrl(b64);
+                              setImageGallery(prev => [{
+                                id: `upload-${Date.now()}`,
+                                url: b64,
+                                prompt: file.name,
+                                style: 'Özel Yükleme',
+                                timestamp: 'Yüklendi',
+                                isBase64: true
+                              }, ...prev]);
+                            }
+                          };
+                          reader.readAsDataURL(file);
+                        }
+                      }}
+                    />
+                  </label>
+                  <span className="text-slate-600">|</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const preset = customProductTitle.toLowerCase().includes('koltuk') || customProductTitle.toLowerCase().includes('temizlik')
+                        ? 'Lüks geniş salonda buharlı profesyonel koltuk yıkama, pırıl pırıl temiz kumaş, 8k stüdyo çekimi'
+                        : customProductTitle.toLowerCase().includes('ceket') || customProductTitle.toLowerCase().includes('giyim')
+                        ? 'İtalyan tasarım lüks deri ceket, şık manken üzerinde Milano sokak çekimi, sinematik ışık, 8k'
+                        : `Ultra-realistic commercial product photography of ${customProductTitle}, luxury studio lighting, 8k`;
+                      setImagePrompt(preset);
+                    }}
+                    className="text-[10px] text-cyan-400 hover:text-cyan-300 font-medium cursor-pointer"
+                  >
+                    Şablon Doldur
+                  </button>
+                </div>
               </div>
               <textarea
                 value={imagePrompt}

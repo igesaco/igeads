@@ -239,8 +239,6 @@ export default function CopilotWidget({ activeClientName = '', onNavigateTab }: 
                         <a 
                           href={m.imageUrl} 
                           download={`ai-copilot-photo-${Date.now()}.jpg`}
-                          target="_blank"
-                          rel="noreferrer"
                           className="px-2.5 py-1 rounded-lg bg-cyan-600/30 hover:bg-cyan-600/50 border border-cyan-500/40 text-[10px] text-cyan-200 font-bold flex items-center gap-1 transition-all"
                         >
                           İndir (JPG)
