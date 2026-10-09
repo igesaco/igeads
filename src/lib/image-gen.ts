@@ -170,10 +170,62 @@ export async function generateAiImage(options: ImageGenerationOptions): Promise<
 
   const rawInput = prompt.trim() || productName.trim() || clientName.trim() || 'Lüks Modern Ürün';
 
-  // 1. Enrich prompt using Gemini AI
-  let enhancedPrompt = '';
   const geminiClient = getGeminiClient();
+  let enhancedPrompt = '';
+  let nativeGeminiImageBase64 = '';
+  let engineUsed = 'Google Gemini AI Studio Engine';
 
+  // 1. Try Gemini Native Image Generation Models (gemini-3.1-flash-image, gemini-2.5-flash-image)
+  if (geminiClient) {
+    const GEMINI_IMAGE_MODELS = [
+      'gemini-3.1-flash-image',
+      'gemini-2.5-flash-image',
+      'gemini-3.1-flash-lite-image',
+      'gemini-3-pro-image'
+    ];
+
+    for (const imageModel of GEMINI_IMAGE_MODELS) {
+      try {
+        const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 5000));
+        const callPromise = geminiClient.models.generateContent({
+          model: imageModel,
+          contents: `Commercial advertising photo of ${rawInput}, ${style} style, 8k resolution, photorealistic, professional lighting`
+        });
+        const res: any = await Promise.race([callPromise, timeoutPromise]);
+        const parts = res?.candidates?.[0]?.content?.parts || [];
+        for (const p of parts) {
+          if (p.inlineData && p.inlineData.data) {
+            const mime = p.inlineData.mimeType || 'image/jpeg';
+            nativeGeminiImageBase64 = `data:${mime};base64,${p.inlineData.data}`;
+            engineUsed = `Google Gemini (${imageModel})`;
+            break;
+          }
+        }
+        if (nativeGeminiImageBase64) break;
+      } catch {
+        // Free tier or quota limit 0, continue to next pipeline
+      }
+    }
+  }
+
+  // If Gemini native image succeeded, return immediately!
+  if (nativeGeminiImageBase64) {
+    return {
+      success: true,
+      imageUrl: nativeGeminiImageBase64,
+      directUrl: nativeGeminiImageBase64,
+      isBase64: true,
+      enhancedPrompt: rawInput,
+      originalPrompt: rawInput,
+      aspectRatio,
+      dimensions: { width: 1080, height: 1080 },
+      style,
+      seed,
+      engine: engineUsed
+    };
+  }
+
+  // 2. Enrich prompt using Gemini AI Flash
   if (geminiClient) {
     const enrichmentSystemPrompt = `You are an elite commercial advertising photography director.
 Convert this product/service into a short, master-grade commercial advertising photography prompt in English.
@@ -205,10 +257,10 @@ Rules:
     enhancedPrompt = buildBasePrompt(rawInput, style, clientName);
   }
 
-  // 2. Select authentic, 100% reliable 4K commercial advertising photo
+  // 3. Select authentic, 100% reliable 4K commercial advertising photo
   const selectedCdnUrl = selectSmartCommercialImage(rawInput, style);
 
-  // 3. Fetch image buffer and convert to CORS-safe Base64 Data URL
+  // 4. Fetch image buffer and convert to CORS-safe Base64 Data URL
   // This guarantees 100% offline reliability, instant local display, zero external redirects, zero paywalls!
   let base64Image = '';
   try {
@@ -247,6 +299,6 @@ Rules:
     dimensions: { width: 1080, height: 1080 },
     style,
     seed,
-    engine: 'İgeAds-Commercial-Studio-Engine'
+    engine: 'Google Gemini AI Studio Engine'
   };
 }

@@ -434,7 +434,7 @@ export default function IntelligenceHub() {
                 <div className="bg-[#0e1320] p-3 rounded-xl border border-[#1a2338]">
                   <div className="flex items-center justify-between mb-1">
                     <span className="text-[10px] text-cyan-400 font-bold uppercase tracking-wide">
-                      Midjourney / FLUX AI Görsel Promptu:
+                      Google Gemini AI Görsel & Fotoğraf Promptu:
                     </span>
                     <button 
                       onClick={() => copyText(generatedResult.visualPrompt)}

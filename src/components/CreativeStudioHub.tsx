@@ -66,6 +66,7 @@ export default function CreativeStudioHub({ activeClientName = '' }: CreativeStu
   const [isGeneratingFullCreative, setIsGeneratingFullCreative] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [lastEnhancedPrompt, setLastEnhancedPrompt] = useState<string | null>(null);
+  const [activeEngine, setActiveEngine] = useState<string>('Google Gemini AI Studio');
   const [imageGallery, setImageGallery] = useState<GeneratedImageItem[]>([
     {
       id: 'default-1',
@@ -191,6 +192,7 @@ export default function CreativeStudioHub({ activeClientName = '' }: CreativeStu
       if (json.success && json.imageUrl) {
         setActiveImageUrl(json.imageUrl);
         setLastEnhancedPrompt(json.enhancedPrompt || null);
+        if (json.engine) setActiveEngine(json.engine);
 
         // Add to history gallery
         const newItem: GeneratedImageItem = {
@@ -511,7 +513,7 @@ export default function CreativeStudioHub({ activeClientName = '' }: CreativeStu
               <Camera className="w-3 h-3 text-cyan-400" />
               SOTA AI FOTOĞRAF & REKLAM FABRİKASI
             </span>
-            <span className="text-xs text-slate-400">| FLUX.1 & Gemini Prompt Engine ile Gerçek Fotoğraf Üretimi</span>
+            <span className="text-xs text-slate-400">| Google Gemini AI Engine ile Gerçek Fotoğraf & Reklam Üretimi</span>
           </div>
           <h1 className="text-xl font-extrabold text-white flex items-center gap-2">
             <Palette className="w-5 h-5 text-purple-400" />
@@ -641,7 +643,7 @@ export default function CreativeStudioHub({ activeClientName = '' }: CreativeStu
                 className="w-full bg-[#121826] border border-[#1f293d] rounded-xl p-2.5 text-xs text-white focus:outline-none focus:border-cyan-500 font-medium resize-none leading-relaxed"
               />
               <p className="text-[11px] text-slate-400 mt-1">
-                İster Türkçe ister İngilizce yazın; Gemini motoru promptu FLUX için otomatik optimize eder.
+                İster Türkçe ister İngilizce yazın; Google Gemini AI motoru görseli doğrudan en yüksek reklam standartlarında üretir.
               </p>
             </div>
 
@@ -682,7 +684,7 @@ export default function CreativeStudioHub({ activeClientName = '' }: CreativeStu
                 className="flex-1 py-2.5 px-4 rounded-xl bg-gradient-to-r from-cyan-600 via-teal-600 to-indigo-600 hover:from-cyan-500 hover:to-indigo-500 text-white font-extrabold text-xs shadow-lg shadow-cyan-600/30 flex items-center justify-center gap-2 transition-all cursor-pointer disabled:opacity-50"
               >
                 <Camera className={`w-4 h-4 ${isGeneratingImage ? 'animate-spin' : ''}`} />
-                <span>{isGeneratingImage ? 'Fotoğraf Üretiliyor (FLUX)...' : '📸 Gerçek Fotoğrafı Üret'}</span>
+                <span>{isGeneratingImage ? 'Fotoğraf Üretiliyor (Gemini AI)...' : '📸 Gemini AI İle Fotoğrafı Üret'}</span>
               </button>
 
               <button
@@ -855,7 +857,7 @@ export default function CreativeStudioHub({ activeClientName = '' }: CreativeStu
                   <span>Canlı Reklam Önizleme ({adFormat.toUpperCase()})</span>
                 </span>
                 <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                  Canlı Fotoğraf Entegre
+                  {activeEngine}
                 </span>
               </div>
 
@@ -909,8 +911,8 @@ export default function CreativeStudioHub({ activeClientName = '' }: CreativeStu
                 {isGeneratingImage && (
                   <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/50 z-20 space-y-2">
                     <Camera className="w-8 h-8 text-cyan-400 animate-spin" />
-                    <span className="text-xs font-bold text-white tracking-wide">Yapay Zeka Fotoğrafı Çekiyor...</span>
-                    <span className="text-[10px] text-slate-300">FLUX.1 8K stüdyo renderlanıyor</span>
+                    <span className="text-xs font-bold text-white tracking-wide">Google Gemini AI Fotoğrafı Üretiyor...</span>
+                    <span className="text-[10px] text-slate-300">Ultra net 4K stüdyo renderlanıyor</span>
                   </div>
                 )}
               </div>
