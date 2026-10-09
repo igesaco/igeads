@@ -66,14 +66,19 @@ try {
   });
   console.log('   ✓ Tüm tablolar, ilişkiler ve indeksler Neon PostgreSQL veritabanında oluşturuldu.');
 
-  // 4. Seed database
-  console.log('\n[4/4] Başlangıç ajans verileri, müşteriler ve kampanyalar yükleniyor (seed)...');
-  execSync('node prisma/seed.mjs', {
-    cwd: rootDir,
-    env: { ...process.env, DATABASE_URL: inputUrl },
-    stdio: 'inherit',
-  });
-  console.log('   ✓ Seed işlemi başarıyla tamamlandı!');
+  // 4. Seed database (Yalnızca --seed parametresi ile)
+  const shouldSeed = process.argv.includes('--seed');
+  if (shouldSeed) {
+    console.log('\n[4/4] Başlangıç ajans verileri, müşteriler ve kampanyalar yükleniyor (seed)...');
+    execSync('node prisma/seed.mjs', {
+      cwd: rootDir,
+      env: { ...process.env, DATABASE_URL: inputUrl },
+      stdio: 'inherit',
+    });
+    console.log('   ✓ Seed işlemi başarıyla tamamlandı!');
+  } else {
+    console.log('\n[4/4] Seed adımı atlandı (Canlı veritabanı temiz tutuldu. Örnek veri için: npm run seed).');
+  }
 
   console.log('\n====================================================');
   console.log('🎉 TEBRİKLER! İgeAds Neon PostgreSQL Canlıya Alındı!');

@@ -25,7 +25,8 @@ import {
   Palette,
   Radio,
   ShieldAlert,
-  MessageSquare
+  MessageSquare,
+  Activity
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -65,6 +66,7 @@ export default function Sidebar({
       items: [
         { id: 'dashboard', label: 'Genel Bakış (Executive)', icon: LayoutDashboard, badge: 'Canlı' },
         { id: 'war_room', label: 'Canlı Satış & War Room', icon: Radio, badge: 'LIVE' },
+        { id: 'social_pulse', label: 'Canlı Platform Nabzı', icon: Activity, badge: 'CANLI' },
       ]
     },
     {

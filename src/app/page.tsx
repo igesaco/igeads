@@ -21,6 +21,7 @@ import SeoGeoHub from '../components/SeoGeoHub';
 import RemarketingHub from '../components/RemarketingHub';
 import IntegrationsHub from '../components/IntegrationsHub';
 import AgencyHub from '../components/AgencyHub';
+import SocialPulseHub from '../components/SocialPulseHub';
 import PricingHub from '../components/PricingHub';
 import GhostMarketerModal from '../components/GhostMarketerModal';
 import AuthModal from '../components/AuthModal';
@@ -107,7 +108,8 @@ export default function Home() {
         body: JSON.stringify({
           name: campName || 'Yeni Kampanya',
           platform: campPlatform,
-          dailyBudget: campBudget
+          dailyBudget: campBudget,
+          clientName: activeClient
         })
       });
       window.dispatchEvent(new CustomEvent('campaign_updated'));
@@ -156,6 +158,16 @@ export default function Home() {
           )}
 
           {activeTab === 'war_room' && <LiveWarRoomHub activeClientName={activeClient} />}
+
+          {activeTab === 'social_pulse' && (
+            <SocialPulseHub 
+              activeClientName={activeClient} 
+              onOpenCampaignModal={(platform) => {
+                setCampPlatform(platform === 'instagram' ? 'meta' : platform);
+                setIsCampaignModalOpen(true);
+              }}
+            />
+          )}
 
           {activeTab === 'ads' && <AdsHub activeClientName={activeClient} />}
 
@@ -207,7 +219,10 @@ export default function Home() {
       </div>
 
       {/* Her Zaman Aktif AI Büyüme Copilot'ı */}
-      <CopilotWidget activeClientName={activeClient} />
+      <CopilotWidget 
+        activeClientName={activeClient} 
+        onNavigateTab={(tab) => setActiveTab(tab)}
+      />
 
       {/* Canlı Bildirim Drawer'ı */}
       <NotificationDrawer

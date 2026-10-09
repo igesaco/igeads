@@ -66,6 +66,10 @@ async function runAllTests() {
     // 5. Canlı Satış Odası (Live War Room) API
     { path: '/api/war-room', method: 'GET' },
 
+    // 5b. Canlı Sosyal Medya Platform Nabzı API
+    { path: '/api/social-pulse', method: 'GET' },
+    { path: '/api/social-pulse?mode=store', method: 'GET' },
+
     // 6. Copilot Yapay Zeka API
     { 
       path: '/api/copilot', 
@@ -168,10 +172,25 @@ async function runAllTests() {
         currentMonthAdSpend: 50000,
         dueDate: '2026-10-15'
       })
+    },
+
+    // 17. Yapay Zeka Fotoğraf & Görsel Üretim API
+    {
+      path: '/api/generate-image',
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        prompt: 'Mandalin Clean Koltuk Yıkama Hizmeti',
+        style: 'studio',
+        aspectRatio: '1:1'
+      })
     }
   ];
 
   const results = [];
+  let testCampId = null;
+  let testRuleId = null;
+
   for (const t of tests) {
     const opts = {};
     if (t.method) opts.method = t.method;
@@ -181,8 +200,23 @@ async function runAllTests() {
     const res = await request(t.path, opts);
     results.push(res);
 
+    if (res.ok && t.path === '/api/campaigns' && t.method === 'POST' && res.data?.campaign?.id) {
+      testCampId = res.data.campaign.id;
+    }
+    if (res.ok && t.path === '/api/rules' && t.method === 'POST' && res.data?.data?.id) {
+      testRuleId = res.data.data.id;
+    }
+
     const statusBadge = res.ok ? '✅ BAŞARILI' : '❌ HATA';
     console.log(`[${statusBadge}] ${res.method} ${res.path} -> ${res.status} (${res.durationMs}ms)`);
+  }
+
+  // Temizlik: Test verilerinin veritabanında kalmasını engelle
+  if (testCampId) {
+    await request(`/api/campaigns?id=${testCampId}`, { method: 'DELETE' });
+  }
+  if (testRuleId) {
+    await request(`/api/rules?id=${testRuleId}`, { method: 'DELETE' });
   }
 
   console.log('\n=== TEST ÖZETİ ===');

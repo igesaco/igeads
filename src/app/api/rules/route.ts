@@ -65,3 +65,15 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ error: 'Kural güncellenemedi' }, { status: 500 });
   }
 }
+
+export async function DELETE(request: Request) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get('id');
+    if (!id) return NextResponse.json({ error: 'Kural ID belirtilmedi' }, { status: 400 });
+    await prisma.automationRule.delete({ where: { id } });
+    return NextResponse.json({ success: true, message: 'Kural silindi' });
+  } catch (error) {
+    return NextResponse.json({ success: false, error: 'Kural silinemedi' }, { status: 500 });
+  }
+}

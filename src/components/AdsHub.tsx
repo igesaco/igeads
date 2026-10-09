@@ -29,9 +29,18 @@ interface AdsHubProps {
 }
 
 export default function AdsHub({ activeClientName = '', onOpenNewCampaign }: AdsHubProps) {
-  const [campaigns, setCampaigns] = useState<AdCampaign[]>(mockCampaigns);
+  const resolveSlug = (name?: string) => {
+    if (!name) return 'all';
+    const lower = name.toLowerCase();
+    if (lower.includes('mandalin') || lower.includes('koltuk') || lower.includes('temizlik')) return 'mandalinclean';
+    if (lower.includes('ige') || lower.includes('ajans') || lower.includes('roas') || lower.includes('b2b')) return 'igesaturkiye';
+    if (lower.includes('velvet')) return 'velvetcouture';
+    return 'all';
+  };
+
+  const [campaigns, setCampaigns] = useState<AdCampaign[]>([]);
   const [filterPlatform, setFilterPlatform] = useState<string>('all');
-  const [selectedBrandSlug, setSelectedBrandSlug] = useState<string>('all');
+  const [selectedBrandSlug, setSelectedBrandSlug] = useState<string>(() => resolveSlug(activeClientName));
   const [availableClients, setAvailableClients] = useState<any[]>([]);
   const [selectedCampaignForAI, setSelectedCampaignForAI] = useState<AdCampaign | null>(null);
   const [copiedHook, setCopiedHook] = useState<string | null>(null);
@@ -60,13 +69,9 @@ export default function AdsHub({ activeClientName = '', onOpenNewCampaign }: Ads
 
   useEffect(() => {
     if (activeClientName) {
-      const lower = activeClientName.toLowerCase();
-      if (lower.includes('mandalin') || lower.includes('koltuk') || lower.includes('temizlik')) {
-        setSelectedBrandSlug('mandalinclean');
-      } else if (lower.includes('ige') || lower.includes('ajans') || lower.includes('roas')) {
-        setSelectedBrandSlug('igesaturkiye');
-      } else if (lower.includes('velvet')) {
-        setSelectedBrandSlug('velvetcouture');
+      const slug = resolveSlug(activeClientName);
+      if (slug !== 'all') {
+        setSelectedBrandSlug(slug);
       }
     }
   }, [activeClientName]);
@@ -80,7 +85,7 @@ export default function AdsHub({ activeClientName = '', onOpenNewCampaign }: Ads
         setCampaigns(data.data);
       }
     } catch (e) {
-      console.warn('Could not load live campaigns, using fallback', e);
+      console.warn('Could not load live campaigns', e);
     }
   };
 
@@ -88,12 +93,18 @@ export default function AdsHub({ activeClientName = '', onOpenNewCampaign }: Ads
     fetchCampaigns();
     const handleUpdate = () => fetchCampaigns();
     window.addEventListener('campaign_updated', handleUpdate);
-    return () => window.removeEventListener('campaign_updated', handleUpdate);
+    return () => {
+      window.removeEventListener('campaign_updated', handleUpdate);
+    };
   }, [selectedBrandSlug]);
 
-  const filteredCampaigns = filterPlatform === 'all' 
-    ? campaigns 
-    : campaigns.filter(c => c.platform === filterPlatform);
+  const filteredCampaigns = campaigns.filter(c => {
+    const matchesPlatform = filterPlatform === 'all' || c.platform === filterPlatform;
+    const matchesBrand = selectedBrandSlug === 'all' || 
+      c.client?.slug === selectedBrandSlug || 
+      (c as any).clientSlug === selectedBrandSlug;
+    return matchesPlatform && matchesBrand;
+  });
 
   const toggleCampaignStatus = async (id: string) => {
     const current = campaigns.find(c => c.id === id);
@@ -282,7 +293,42 @@ export default function AdsHub({ activeClientName = '', onOpenNewCampaign }: Ads
               </tr>
             </thead>
             <tbody className="divide-y divide-[#182236]">
-              {filteredCampaigns.map((camp) => {
+              {filteredCampaigns.length === 0 ? (
+                <tr>
+                  <td colSpan={10} className="py-12 text-center">
+                    <div className="max-w-md mx-auto space-y-3">
+                      <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 flex items-center justify-center mx-auto">
+                        <Megaphone className="w-6 h-6" />
+                      </div>
+                      <div>
+                        <h3 className="text-sm font-bold text-white">Canlı Kampanya Bulunmuyor</h3>
+                        <p className="text-xs text-slate-400 mt-1">
+                          {selectedBrandSlug !== 'all' 
+                            ? 'Bu markaya ait henüz aktif veya kayıtlı reklam kampanyası yok. "Yeni Kampanya Aç" butonuyla yeni bir kampanya tanımlayabilir veya Meta / Google Ads hesabınızı bağlayabilirsiniz.' 
+                            : 'Sistemde henüz kayıtlı reklam kampanyası bulunmuyor. Yeni bir kampanya açarak başlayabilirsiniz.'}
+                        </p>
+                      </div>
+                      <button 
+                        onClick={() => {
+                          if (onOpenNewCampaign) onOpenNewCampaign();
+                          else {
+                            setNewCampForm(prev => ({
+                              ...prev,
+                              clientSlug: selectedBrandSlug !== 'all' ? selectedBrandSlug : (availableClients[0]?.slug || '')
+                            }));
+                            setIsNewCampModalOpen(true);
+                          }
+                        }}
+                        className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-xs font-semibold text-white transition-all cursor-pointer shadow-lg shadow-indigo-600/20"
+                      >
+                        <Plus className="w-4 h-4" />
+                        <span>Yeni Kampanya Oluştur</span>
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ) : (
+                filteredCampaigns.map((camp) => {
                 const isFatigued = camp.fatigueScore > 75;
 
                 return (
@@ -390,7 +436,8 @@ export default function AdsHub({ activeClientName = '', onOpenNewCampaign }: Ads
                     </td>
                   </tr>
                 );
-              })}
+              })
+            )}
             </tbody>
           </table>
         </div>

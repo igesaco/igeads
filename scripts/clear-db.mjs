@@ -1,5 +1,16 @@
-#!/usr/bin/env node
+import fs from 'fs';
 import { PrismaClient } from '@prisma/client';
+
+// Load .env.local if DATABASE_URL is not set
+if (!process.env.DATABASE_URL && fs.existsSync('.env.local')) {
+  const envContent = fs.readFileSync('.env.local', 'utf-8');
+  envContent.split('\n').forEach(line => {
+    const [k, ...v] = line.split('=');
+    if (k && v.length) {
+      process.env[k.trim()] = v.join('=').trim().replace(/^"(.*)"$/, '$1');
+    }
+  });
+}
 
 const prisma = new PrismaClient();
 
@@ -15,6 +26,12 @@ async function main() {
 
   const deletedTasks = await prisma.agencyTask.deleteMany();
   console.log(`✓ ${deletedTasks.count} adet ajans görevi silindi.`);
+
+  const deletedRules = await prisma.automationRule.deleteMany();
+  console.log(`✓ ${deletedRules.count} adet kural silindi.`);
+
+  const deletedNotifications = await prisma.notification.deleteMany();
+  console.log(`✓ ${deletedNotifications.count} adet bildirim silindi.`);
 
   const deletedClients = await prisma.client.deleteMany();
   console.log(`✓ ${deletedClients.count} adet müşteri/marka silindi.`);

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getGeminiClient, GEMINI_MODEL, GEMINI_MODELS, SYSTEM_PROMPT_COPILOT } from '@/lib/gemini';
 import { prisma } from '@/lib/prisma';
+import { generateAiImage } from '@/lib/image-gen';
 
 function extractTopic(prompt: string): string {
   // Matches "... için"
@@ -14,7 +15,7 @@ function extractTopic(prompt: string): string {
   
   // Secondary fallback: strip common words
   const cleaned = prompt
-    .replace(/(dostum|lütfen|bana|yeni|bir|kanca|videosu|video|yaz|oluştur|öner|reels|tiktok|için|hakkında)/gi, '')
+    .replace(/(dostum|lütfen|bana|yeni|bir|kanca|videosu|video|yaz|oluştur|öner|reels|tiktok|için|hakkında|fotoğraf|resim|görsel|çiz)/gi, '')
     .trim();
   return cleaned || 'ürününüz';
 }
@@ -42,6 +43,31 @@ export async function POST(request: Request) {
     const activeClient = body?.clientName || '';
     if (!prompt.trim()) {
       return NextResponse.json({ reply: 'Lütfen analiz etmek istediğiniz konuyu veya sorunuzu yazın.' });
+    }
+
+    const lower = prompt.toLowerCase();
+    const isImageRequest = lower.includes('fotoğraf') || lower.includes('resim') || lower.includes('görsel') || lower.includes('çiz') || lower.includes('image') || lower.includes('tasarla');
+
+    if (isImageRequest) {
+      const topic = extractTopic(prompt);
+      const imgResult = await generateAiImage({
+        prompt,
+        productName: topic || activeClient || 'Ticari Reklam Ürünü',
+        clientName: activeClient,
+        style: 'studio',
+        aspectRatio: '1:1'
+      });
+
+      if (imgResult.success && imgResult.imageUrl) {
+        return NextResponse.json({
+          success: true,
+          reply: `📸 "${topic || activeClient || 'Ürününüz'}" için ticari kalitede yapay zeka reklam fotoğrafı üretildi!\n\n💡 Işık: 85mm ticari stüdyo aydınlatması\n🚀 Motor: ${imgResult.engine}\n\nBu görseli doğrudan kullanabilir veya AI Tasarım Stüdyosu'nda reklam formatlarına uyarlayabilirsiniz.`,
+          imageUrl: imgResult.imageUrl,
+          enhancedPrompt: imgResult.enhancedPrompt,
+          action: 'Kreatif Stüdyo\'da Kullan',
+          engine: imgResult.engine
+        });
+      }
     }
 
     // Fetch live system state from Prisma to inject real-time context
@@ -126,7 +152,6 @@ ${liveProducts.map(p => `  * ${p.name}: Stok: ${p.stock} adet, Fiyat: ₺${p.pri
     // 2. Dynamic Topic & Context Aware Engine (Active when GEMINI_API_KEY is not yet supplied)
     let reply = '';
     let action = undefined;
-    const lower = prompt.toLowerCase();
     const topic = extractTopic(prompt);
 
     if (lower.includes('kanca') || lower.includes('reels') || lower.includes('içerik') || lower.includes('video') || lower.includes('reklam')) {

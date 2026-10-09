@@ -14,16 +14,24 @@ import {
 
 interface CopilotWidgetProps {
   activeClientName?: string;
+  onNavigateTab?: (tab: string) => void;
 }
 
-export default function CopilotWidget({ activeClientName = '' }: CopilotWidgetProps) {
+export default function CopilotWidget({ activeClientName = '', onNavigateTab }: CopilotWidgetProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [inputMsg, setInputMsg] = useState('');
   const [isThinking, setIsThinking] = useState(false);
-  const [messages, setMessages] = useState<Array<{ sender: 'user' | 'bot'; text: string; time: string; actionBtn?: string; engine?: string }>>([
+  const [messages, setMessages] = useState<Array<{ 
+    sender: 'user' | 'bot'; 
+    text: string; 
+    time: string; 
+    actionBtn?: string; 
+    engine?: string;
+    imageUrl?: string;
+  }>>([
     {
       sender: 'bot',
-      text: 'Merhaba! Ben İgeAds Growth Copilot. Reklam bütçelerinizi kaydırabilir, rakip analizleri yapabilir veya pazaryeri kârınızı hesaplayabilirim. Bugün ne yapmak istersiniz?',
+      text: 'Merhaba! Ben İgeAds Growth Copilot. Reklam bütçelerinizi kaydırabilir, rakip analizleri yapabilir veya ürününüz için yapay zeka ile fotoğraf üretebilirim. Bugün ne yapmak istersiniz?',
       time: '02:22'
     }
   ]);
@@ -59,7 +67,8 @@ export default function CopilotWidget({ activeClientName = '' }: CopilotWidgetPr
         text: data?.reply || 'Talebiniz analiz edildi.',
         time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         actionBtn: data?.action,
-        engine: data?.engine
+        engine: data?.engine,
+        imageUrl: data?.imageUrl
       }]);
     } catch (err) {
       console.error('Copilot request failed:', err);
@@ -174,6 +183,12 @@ export default function CopilotWidget({ activeClientName = '' }: CopilotWidgetPr
             ) : (
               <>
                 <button 
+                  onClick={() => handleSend(undefined, `${activeClientName || 'Ürünüm'} için yapay zeka ile profesyonel reklam stüdyosu fotoğrafı üret`)}
+                  className="px-2.5 py-1 rounded-full bg-cyan-950/60 text-cyan-300 hover:text-white border border-cyan-500/40 whitespace-nowrap cursor-pointer hover:border-cyan-400 transition-all font-bold"
+                >
+                  📸 AI Fotoğraf Üret
+                </button>
+                <button 
                   onClick={() => handleSend(undefined, 'TikTok bütçesini Meta\'ya kaydır')}
                   className="px-2.5 py-1 rounded-full bg-[#141b2b] text-slate-300 hover:text-white border border-[#212b42] whitespace-nowrap cursor-pointer hover:border-indigo-500/40 transition-all"
                 >
@@ -211,8 +226,47 @@ export default function CopilotWidget({ activeClientName = '' }: CopilotWidgetPr
                 >
                   {m.text}
 
+                  {/* Render Generated AI Image if available */}
+                  {m.imageUrl && (
+                    <div className="mt-3 rounded-xl overflow-hidden border border-cyan-500/30 relative group shadow-lg bg-black/40">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img 
+                        src={m.imageUrl} 
+                        alt="Copilot Generated AI Photo" 
+                        className="w-full h-44 object-cover"
+                      />
+                      <div className="p-2 bg-[#0d121f] flex items-center justify-between gap-2 border-t border-slate-800">
+                        <a 
+                          href={m.imageUrl} 
+                          download={`ai-copilot-photo-${Date.now()}.jpg`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="px-2.5 py-1 rounded-lg bg-cyan-600/30 hover:bg-cyan-600/50 border border-cyan-500/40 text-[10px] text-cyan-200 font-bold flex items-center gap-1 transition-all"
+                        >
+                          İndir (JPG)
+                        </a>
+                        {onNavigateTab && (
+                          <button
+                            type="button"
+                            onClick={() => onNavigateTab('creative_studio')}
+                            className="px-2.5 py-1 rounded-lg bg-purple-600/30 hover:bg-purple-600/50 border border-purple-500/40 text-[10px] text-purple-200 font-bold flex items-center gap-1 cursor-pointer transition-all"
+                          >
+                            Stüdyoda Aç
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
                   {m.actionBtn && (
-                    <button className="mt-2.5 w-full py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[11px] shadow-sm flex items-center justify-center gap-1 cursor-pointer transition-all">
+                    <button 
+                      onClick={() => {
+                        if (m.actionBtn?.includes('Stüdyo') && onNavigateTab) {
+                          onNavigateTab('creative_studio');
+                        }
+                      }}
+                      className="mt-2.5 w-full py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[11px] shadow-sm flex items-center justify-center gap-1 cursor-pointer transition-all"
+                    >
                       <Zap className="w-3 h-3" />
                       <span>{m.actionBtn}</span>
                     </button>

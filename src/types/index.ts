@@ -15,6 +15,13 @@ export interface AdCampaign {
   fatigueScore: number; // 0-100 (80+ = acil revize gerekli)
   linkedProduct?: string;
   targetMarketplaceStock?: number;
+  clientId?: string;
+  clientSlug?: string;
+  client?: {
+    name: string;
+    slug: string;
+    sector?: string;
+  };
 }
 
 export interface MarketplaceProduct {

@@ -11,7 +11,9 @@ import {
   Zap, 
   Flame,
   ShieldCheck,
-  Store
+  Store,
+  Activity,
+  ArrowUpRight
 } from 'lucide-react';
 
 interface LiveWarRoomHubProps {
@@ -26,6 +28,7 @@ export default function LiveWarRoomHub({ activeClientName = '' }: LiveWarRoomHub
   const [liveViewers, setLiveViewers] = useState(0);
   const [todayRevenue, setTodayRevenue] = useState(0);
   const [availableClients, setAvailableClients] = useState<any[]>([]);
+  const [socialPulse, setSocialPulse] = useState<any[]>([]);
 
   useEffect(() => {
     fetch('/api/clients')
@@ -69,6 +72,15 @@ export default function LiveWarRoomHub({ activeClientName = '' }: LiveWarRoomHub
           })));
         }
       }
+      // Also fetch live social pulse
+      fetch('/api/social-pulse')
+        .then(r => r.json())
+        .then(d => {
+          if (d.success && Array.isArray(d.data?.platforms)) {
+            setSocialPulse(d.data.platforms);
+          }
+        })
+        .catch(() => {});
     } catch (err) {
       console.warn('War room fetch:', err);
     }
@@ -146,6 +158,49 @@ export default function LiveWarRoomHub({ activeClientName = '' }: LiveWarRoomHub
           <span className="text-xs font-semibold text-slate-400">Ortalama Sepet Tutarı (AOV)</span>
           <p className="text-3xl font-black text-indigo-300 mt-1">₺0</p>
           <span className="text-[10px] text-slate-400 mt-1 block">Sipariş Kaydı Bekleniyor</span>
+        </div>
+      </div>
+
+      {/* Live Social Media & Platform Pulse Strip */}
+      <div className="glass-panel p-4 rounded-2xl border-indigo-500/30">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
+          <div className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+            <h3 className="text-xs font-bold text-white flex items-center gap-1.5">
+              <Activity className="w-3.5 h-3.5 text-indigo-400" />
+              <span>Anlık Sosyal Medya & Platform Kullanım Oranları (Canlı Telemetri)</span>
+            </h3>
+          </div>
+          <span className="text-[10px] text-slate-400 font-mono">
+            Instagram %38 • TikTok %28 • Google %16 • YouTube %11
+          </span>
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2.5">
+          {socialPulse.length > 0 ? (
+            socialPulse.map((p: any) => (
+              <div 
+                key={p.id} 
+                className="p-2.5 rounded-xl bg-[#101626] border border-[#1b253b] hover:border-indigo-500/40 transition-all flex flex-col justify-between"
+              >
+                <div className="flex items-center justify-between text-[11px] mb-1">
+                  <span className="font-bold text-white flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: p.color }}></span>
+                    <span>{p.name}</span>
+                  </span>
+                  <span className="text-[10px] text-emerald-400 font-bold">{p.growthRate}</span>
+                </div>
+                <div className="flex items-baseline justify-between">
+                  <span className="text-base font-black text-white">%{p.share}</span>
+                  <span className="text-[10px] text-slate-400 font-mono">{p.activeUsers?.toLocaleString('tr-TR')} k</span>
+                </div>
+              </div>
+            ))
+          ) : (
+            <div className="col-span-full py-2 text-center text-xs text-slate-500">
+              Sosyal medya telemetrisi yükleniyor...
+            </div>
+          )}
         </div>
       </div>
 

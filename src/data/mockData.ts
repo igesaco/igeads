@@ -160,6 +160,34 @@ export const mockIntegrations: any[] = [
       { label: 'WhatsApp Phone Number ID', placeholder: '10928419...', value: '' },
       { label: 'Meta System User Token', placeholder: 'EAA...', value: '', isSecret: true }
     ]
+  },
+  {
+    id: 'int-ga4',
+    platform: 'Google Analytics 4 (GA4 Realtime)',
+    category: 'analytics',
+    connected: false,
+    accountName: 'Bağlı Değil',
+    lastSync: 'Henüz Bağlanmadı',
+    badgeColor: 'bg-slate-500/20 text-slate-400 border-slate-500/30',
+    syncFrequency: 'Canlı Telemetri (Her 10 sn)',
+    fields: [
+      { label: 'GA4 Property ID', placeholder: 'Örn: 398241920', value: '' },
+      { label: 'Google Service Account JSON Key', placeholder: '{"type": "service_account"...}', value: '', isSecret: true }
+    ]
+  },
+  {
+    id: 'int-cloudflare_radar',
+    platform: 'Cloudflare Radar (Sosyal Ağ Pazar Payı)',
+    category: 'analytics',
+    connected: false,
+    accountName: 'Bağlı Değil',
+    lastSync: 'Henüz Bağlanmadı',
+    badgeColor: 'bg-slate-500/20 text-slate-400 border-slate-500/30',
+    syncFrequency: 'Saatlik & Canlı Telemetri',
+    fields: [
+      { label: 'Cloudflare Account ID', placeholder: 'd8924b...', value: '' },
+      { label: 'Cloudflare API Token', placeholder: 'cftk_...', value: '', isSecret: true }
+    ]
   }
 ];
 

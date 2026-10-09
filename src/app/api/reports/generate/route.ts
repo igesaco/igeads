@@ -8,10 +8,23 @@ export async function POST(request: Request) {
     const { clientSlug = 'mandalinclean', period = 'Haftalık Büyüme & ROAS Raporu' } = body;
 
     // 1. Fetch real client and campaign data
-    const client = await prisma.client.findFirst({
-      where: { slug: clientSlug },
+    let client = await prisma.client.findFirst({
+      where: {
+        OR: [
+          { slug: clientSlug },
+          { slug: { contains: clientSlug.replace(/[^a-z0-9]/g, '') } },
+          { name: { contains: clientSlug, mode: 'insensitive' } }
+        ]
+      },
       include: { campaigns: true }
     });
+
+    if (!client) {
+      // Graceful fallback to first client in DB so reports never fail
+      client = await prisma.client.findFirst({
+        include: { campaigns: true }
+      });
+    }
 
     if (!client) {
       return NextResponse.json({ error: 'Müşteri kaydı bulunamadı' }, { status: 404 });

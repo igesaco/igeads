@@ -44,6 +44,14 @@ export async function POST(request: Request) {
       const client = await prisma.client.findFirst({ where: { slug: body.clientSlug } });
       if (client) clientId = client.id;
     }
+    if (!clientId && body.clientName) {
+      const client = await prisma.client.findFirst({
+        where: {
+          name: { contains: body.clientName, mode: 'insensitive' }
+        }
+      });
+      if (client) clientId = client.id;
+    }
 
     const newCampaign = await prisma.campaign.create({
       data: {
@@ -100,3 +108,21 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ error: 'Kampanya güncellenemedi' }, { status: 500 });
   }
 }
+
+export async function DELETE(request: Request) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get('id');
+
+    if (!id) {
+      return NextResponse.json({ error: 'Kampanya ID gerekli' }, { status: 400 });
+    }
+
+    await prisma.campaign.delete({ where: { id } });
+    return NextResponse.json({ success: true, message: 'Kampanya başarıyla silindi' });
+  } catch (error) {
+    console.error('Campaign delete error:', error);
+    return NextResponse.json({ error: 'Kampanya silinemedi' }, { status: 500 });
+  }
+}
+
