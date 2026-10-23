@@ -1,8 +1,11 @@
 import { NextResponse } from 'next/server';
+import { requireTenant } from '@/lib/tenant';
 import { getGeminiClient, GEMINI_MODEL } from '@/lib/gemini';
 
 export async function POST(request: Request) {
   try {
+    const tenant = await requireTenant(request);
+    if (tenant instanceof NextResponse) return tenant;
     const body = await request.json();
     const brand = body?.brand?.trim() || '';
 

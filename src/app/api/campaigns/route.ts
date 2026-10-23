@@ -1,13 +1,16 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { requireTenant } from '@/lib/tenant';
 
 export async function GET(request: Request) {
   try {
+    const tenant = await requireTenant(request);
+    if (tenant instanceof NextResponse) return tenant;
     const { searchParams } = new URL(request.url);
     const clientId = searchParams.get('clientId');
     const clientSlug = searchParams.get('clientSlug');
 
-    const where: any = {};
+    const where: any = { organizationId: tenant.orgId };
     if (clientId && clientId !== 'all') {
       where.clientId = clientId;
     } else if (clientSlug && clientSlug !== 'all') {
@@ -37,16 +40,23 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
+    const tenant = await requireTenant(request);
+    if (tenant instanceof NextResponse) return tenant;
     const body = await request.json();
     
-    let clientId = body.clientId;
+    let clientId: string | undefined;
+    if (body.clientId) {
+      const client = await prisma.client.findFirst({ where: { id: body.clientId, organizationId: tenant.orgId } });
+      if (client) clientId = client.id;
+    }
     if (!clientId && body.clientSlug) {
-      const client = await prisma.client.findFirst({ where: { slug: body.clientSlug } });
+      const client = await prisma.client.findFirst({ where: { slug: body.clientSlug, organizationId: tenant.orgId } });
       if (client) clientId = client.id;
     }
     if (!clientId && body.clientName) {
       const client = await prisma.client.findFirst({
         where: {
+          organizationId: tenant.orgId,
           name: { contains: body.clientName, mode: 'insensitive' }
         }
       });
@@ -55,6 +65,7 @@ export async function POST(request: Request) {
 
     const newCampaign = await prisma.campaign.create({
       data: {
+        organizationId: tenant.orgId,
         name: body.name || 'Yeni Kampanya',
         platform: body.platform || 'meta',
         status: 'active',
@@ -87,11 +98,18 @@ export async function POST(request: Request) {
 
 export async function PATCH(request: Request) {
   try {
+    const tenant = await requireTenant(request);
+    if (tenant instanceof NextResponse) return tenant;
     const body = await request.json();
     const { id, status, dailyBudget } = body;
 
     if (!id) {
       return NextResponse.json({ error: 'Kampanya ID gerekli' }, { status: 400 });
+    }
+
+    const existing = await prisma.campaign.findFirst({ where: { id, organizationId: tenant.orgId } });
+    if (!existing) {
+      return NextResponse.json({ error: 'Kampanya bulunamadı' }, { status: 404 });
     }
 
     const updated = await prisma.campaign.update({
@@ -111,6 +129,8 @@ export async function PATCH(request: Request) {
 
 export async function DELETE(request: Request) {
   try {
+    const tenant = await requireTenant(request);
+    if (tenant instanceof NextResponse) return tenant;
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
 
@@ -118,7 +138,10 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ error: 'Kampanya ID gerekli' }, { status: 400 });
     }
 
-    await prisma.campaign.delete({ where: { id } });
+    const { count } = await prisma.campaign.deleteMany({ where: { id, organizationId: tenant.orgId } });
+    if (count === 0) {
+      return NextResponse.json({ error: 'Kampanya bulunamadı' }, { status: 404 });
+    }
     return NextResponse.json({ success: true, message: 'Kampanya başarıyla silindi' });
   } catch (error) {
     console.error('Campaign delete error:', error);

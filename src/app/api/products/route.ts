@@ -1,9 +1,14 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { requireTenant } from '@/lib/tenant';
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
+    const tenant = await requireTenant(request);
+    if (tenant instanceof NextResponse) return tenant;
+
     const products = await prisma.product.findMany({
+      where: { organizationId: tenant.orgId },
       orderBy: { stock: 'asc' }
     });
 
@@ -19,11 +24,18 @@ export async function GET() {
 
 export async function PATCH(request: Request) {
   try {
+    const tenant = await requireTenant(request);
+    if (tenant instanceof NextResponse) return tenant;
     const body = await request.json();
     const { id, price, buyboxPrice, isBuybox, stock } = body;
 
     if (!id) {
       return NextResponse.json({ error: 'Ürün ID belirtilmedi' }, { status: 400 });
+    }
+
+    const existing = await prisma.product.findFirst({ where: { id, organizationId: tenant.orgId } });
+    if (!existing) {
+      return NextResponse.json({ error: 'Ürün bulunamadı' }, { status: 404 });
     }
 
     const updated = await prisma.product.update({
@@ -49,6 +61,8 @@ export async function PATCH(request: Request) {
 
 export async function POST(request: Request) {
   try {
+    const tenant = await requireTenant(request);
+    if (tenant instanceof NextResponse) return tenant;
     const body = await request.json();
     const { name, sku, marketplace, price, stock, clientId } = body;
 
@@ -56,8 +70,20 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Ürün adı ve SKU zorunludur' }, { status: 400 });
     }
 
+    const duplicate = await prisma.product.findFirst({ where: { sku, organizationId: tenant.orgId } });
+    if (duplicate) {
+      return NextResponse.json({ error: 'Bu SKU ile kayıtlı bir ürün zaten var' }, { status: 409 });
+    }
+
+    let ownerId: string | null = null;
+    if (clientId) {
+      const owner = await prisma.client.findFirst({ where: { id: clientId, organizationId: tenant.orgId }, select: { id: true } });
+      ownerId = owner?.id ?? null;
+    }
+
     const newProd = await prisma.product.create({
       data: {
+        organizationId: tenant.orgId,
         name,
         sku,
         marketplace: marketplace || 'Hepsiburada',
@@ -66,7 +92,7 @@ export async function POST(request: Request) {
         stock: Number(stock) || 10,
         isBuybox: true,
         returnRate: 1.5,
-        clientId: clientId || null
+        clientId: ownerId
       }
     });
 

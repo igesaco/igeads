@@ -1,8 +1,12 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { requireTenant } from '@/lib/tenant';
 
 export async function GET(request: Request) {
   try {
+    const tenant = await requireTenant(request);
+    if (tenant instanceof NextResponse) return tenant;
+
     const { searchParams } = new URL(request.url);
     const mode = searchParams.get('mode') || 'macro'; // 'macro' (TR/Global Geneli) | 'store' (Canlı Mağaza Ziyaretçileri)
     const clientSlug = searchParams.get('clientSlug') || 'all';
@@ -16,6 +20,7 @@ export async function GET(request: Request) {
     try {
       const configs = await prisma.integrationConfig.findMany({
         where: {
+          organizationId: tenant.orgId,
           provider: {
             in: ['ga4', 'cloudflare_radar', 'meta', 'tiktok', 'google']
           }
@@ -231,20 +236,26 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
+    const tenant = await requireTenant(request);
+    if (tenant instanceof NextResponse) return tenant;
+
     const body = await request.json();
     const { action, provider, credentials } = body;
 
-    if (action === 'save_credentials' && provider) {
-      const saved = await prisma.integrationConfig.upsert({
-        where: { provider },
-        update: {
+    if (action === 'save_credentials' && (provider === 'ga4' || provider === 'cloudflare_radar')) {
+      const existing = await prisma.integrationConfig.findFirst({ where: { provider, organizationId: tenant.orgId } });
+      const saved = existing ? await prisma.integrationConfig.update({
+        where: { id: existing.id },
+        data: {
           name: provider === 'ga4' ? 'Google Analytics 4 Realtime' : 'Cloudflare Radar Pulse',
           category: 'analytics',
           connected: false,
           credentials: JSON.stringify(credentials || {}),
           status: 'configured'
-        },
-        create: {
+        }
+      }) : await prisma.integrationConfig.create({
+        data: {
+          organizationId: tenant.orgId,
           provider,
           name: provider === 'ga4' ? 'Google Analytics 4 Realtime' : 'Cloudflare Radar Pulse',
           category: 'analytics',

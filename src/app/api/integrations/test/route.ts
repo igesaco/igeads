@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { requireTenant } from '@/lib/tenant';
 import { testMetaConnection } from '@/lib/integrations/meta';
 import { testTrendyolConnection } from '@/lib/integrations/trendyol';
 import { testGoogleAdsConnection } from '@/lib/integrations/google';
@@ -17,6 +18,8 @@ import {
 
 export async function POST(request: Request) {
   try {
+    const tenant = await requireTenant(request);
+    if (tenant instanceof NextResponse) return tenant;
     const body = await request.json();
     const { provider } = body;
 
@@ -27,7 +30,7 @@ export async function POST(request: Request) {
     const providerKey = String(provider).replace(/^int-/, '').toLowerCase();
 
     // Secrets are masked in the browser, so fill empty fields from the stored config
-    const stored = await prisma.integrationConfig.findUnique({ where: { provider: providerKey } });
+    const stored = await prisma.integrationConfig.findFirst({ where: { provider: providerKey, organizationId: tenant.orgId } });
     const credentials = mergeCredentials(parseStoredCredentials(stored?.credentials), body.credentials);
 
     let testResult: any;
@@ -58,7 +61,7 @@ export async function POST(request: Request) {
 
     if (stored) {
       await prisma.integrationConfig.update({
-        where: { provider: providerKey },
+        where: { id: stored.id },
         data: {
           connected: Boolean(testResult.success),
           status: testResult.success ? 'active' : 'error',

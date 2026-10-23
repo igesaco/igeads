@@ -3,10 +3,25 @@ import { prisma } from '@/lib/prisma';
 import { fetchMetaCampaigns } from '@/lib/integrations/meta';
 import { fetchTrendyolProducts } from '@/lib/integrations/trendyol';
 import { fetchHepsiburadaProducts } from '@/lib/integrations/hepsiburada';
+import { requireTenant } from '@/lib/tenant';
 import { hepsiburadaCredentials, metaCredentials, parseStoredCredentials, trendyolCredentials } from '@/lib/integrations/credentials';
+
+/** Products are unique per organization by SKU */
+async function upsertProduct(organizationId: string, sku: string, update: Record<string, any>, create: Record<string, any>) {
+  const existing = await prisma.product.findFirst({ where: { organizationId, sku }, select: { id: true } });
+  if (existing) {
+    await prisma.product.update({ where: { id: existing.id }, data: update });
+  } else {
+    await prisma.product.create({ data: { ...create, sku, organizationId } as any });
+  }
+}
 
 export async function POST(request: Request) {
   try {
+    const tenant = await requireTenant(request);
+    if (tenant instanceof NextResponse) return tenant;
+    const orgId = tenant.orgId;
+
     const body = await request.json();
     const { provider } = body;
 
@@ -15,8 +30,8 @@ export async function POST(request: Request) {
     }
 
     const cleanProvider = provider.replace(/^int-/, '').toLowerCase();
-    const config = await prisma.integrationConfig.findUnique({
-      where: { provider: cleanProvider }
+    const config = await prisma.integrationConfig.findFirst({
+      where: { provider: cleanProvider, organizationId: orgId }
     });
 
     if (!config || !config.credentials) {
@@ -40,7 +55,7 @@ export async function POST(request: Request) {
       // Attach synced campaigns to the brand whose Meta ad account matches
       const cleanAccountId = adAccountId.replace(/^act_/, '');
       const owner = await prisma.client.findFirst({
-        where: { metaAccountId: { in: [cleanAccountId, `act_${cleanAccountId}`] } },
+        where: { organizationId: orgId, metaAccountId: { in: [cleanAccountId, `act_${cleanAccountId}`] } },
         select: { id: true }
       });
       
@@ -56,40 +71,41 @@ export async function POST(request: Request) {
         const cpc = insights.cpc ? parseFloat(insights.cpc) : 0;
         const revenue = Math.round(spent * roas * 100) / 100;
 
-        await prisma.campaign.upsert({
-          where: { id: `meta-${mc.id}` },
-          update: {
-            name: mc.name,
-            status: mc.status === 'ACTIVE' ? 'active' : 'paused',
-            dailyBudget,
-            spent,
-            revenue,
-            roas,
-            ctr,
-            cpc,
-            ...(owner && { clientId: owner.id })
-          },
-          create: {
-            id: `meta-${mc.id}`,
-            name: mc.name,
-            platform: 'meta',
-            status: mc.status === 'ACTIVE' ? 'active' : 'paused',
-            dailyBudget,
-            spent,
-            revenue,
-            roas,
-            ctr,
-            cpc,
-            fatigueScore: 0,
-            targetMarketplaceStock: 100,
-            ...(owner && { clientId: owner.id })
-          }
+        // Ids are prefixed with the organization so two accounts syncing the same ad account do not collide
+        const existing = await prisma.campaign.findFirst({
+          where: { organizationId: orgId, id: { in: [`meta-${mc.id}`, `meta-${orgId}-${mc.id}`] } },
+          select: { id: true }
         });
+        const fields = {
+          name: mc.name,
+          status: mc.status === 'ACTIVE' ? 'active' : 'paused',
+          dailyBudget,
+          spent,
+          revenue,
+          roas,
+          ctr,
+          cpc,
+          ...(owner && { clientId: owner.id })
+        };
+        if (existing) {
+          await prisma.campaign.update({ where: { id: existing.id }, data: fields });
+        } else {
+          await prisma.campaign.create({
+            data: {
+              ...fields,
+              id: `meta-${orgId}-${mc.id}`,
+              organizationId: orgId,
+              platform: 'meta',
+              fatigueScore: 0,
+              targetMarketplaceStock: 100
+            }
+          });
+        }
         savedCount++;
       }
 
       await prisma.integrationConfig.update({
-        where: { provider: 'meta' },
+        where: { id: config.id },
         data: { lastSync: new Date() }
       });
 
@@ -116,30 +132,20 @@ export async function POST(request: Request) {
         const price = Number(p.salePrice || p.listPrice) || 0;
         const stock = Number(p.quantity) || 0;
 
-        await prisma.product.upsert({
-          where: { sku },
-          update: {
-            price,
-            stock,
-            buyboxPrice: price,
-            isBuybox: true
-          },
-          create: {
-            sku,
-            name,
-            marketplace: 'Trendyol',
-            price,
-            stock,
-            buyboxPrice: price,
-            isBuybox: true,
-            returnRate: 0.08
-          }
+        await upsertProduct(orgId, sku, { price, stock }, {
+          name,
+          marketplace: 'Trendyol',
+          price,
+          stock,
+          buyboxPrice: price,
+          isBuybox: true,
+          returnRate: 0
         });
         savedCount++;
       }
 
       await prisma.integrationConfig.update({
-        where: { provider: 'trendyol' },
+        where: { id: config.id },
         data: { lastSync: new Date() }
       });
 
@@ -173,36 +179,24 @@ export async function POST(request: Request) {
         const sku = item.hepsiburadaSku || item.merchantSku || item.listingId;
         if (!sku) continue;
         const name = item.productName || item.merchantSku || item.hepsiburadaSku || `Hepsiburada Ürünü (${sku})`;
-        const price = Number(item.price) || 500;
+        const price = Number(item.price) || 0;
         const stock = Number(item.availableStock) || 0;
         const isSalable = item.isSalable !== undefined ? Boolean(item.isSalable) : true;
 
-        await prisma.product.upsert({
-          where: { sku },
-          update: {
-            name,
-            price,
-            stock,
-            buyboxPrice: price,
-            isBuybox: isSalable,
-            marketplace: 'Hepsiburada'
-          },
-          create: {
-            sku,
-            name,
-            marketplace: 'Hepsiburada',
-            price,
-            stock,
-            buyboxPrice: price,
-            isBuybox: isSalable,
-            returnRate: 0.05
-          }
+        await upsertProduct(orgId, sku, { name, price, stock, marketplace: 'Hepsiburada' }, {
+          name,
+          marketplace: 'Hepsiburada',
+          price,
+          stock,
+          buyboxPrice: price,
+          isBuybox: isSalable,
+          returnRate: 0
         });
         savedCount++;
       }
 
       await prisma.integrationConfig.update({
-        where: { provider: 'hepsiburada' },
+        where: { id: config.id },
         data: { lastSync: new Date() }
       });
 

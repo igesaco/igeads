@@ -17,11 +17,12 @@ async function login() {
   return res.ok && Boolean(sessionCookie);
 }
 
-async function request(path, options = {}, { anonymous = false } = {}) {
+async function request(path, options = {}, { anonymous = false, cookie } = {}) {
   const start = Date.now();
   const url = `${BASE_URL}${path}`;
   const headers = { ...(options.headers || {}) };
-  if (!anonymous && sessionCookie) headers.Cookie = sessionCookie;
+  const activeCookie = cookie ?? sessionCookie;
+  if (!anonymous && activeCookie) headers.Cookie = activeCookie;
   try {
     const res = await fetch(url, { ...options, headers });
     const duration = Date.now() - start;
@@ -35,6 +36,7 @@ async function request(path, options = {}, { anonymous = false } = {}) {
     return {
       path,
       method: options.method || 'GET',
+      setCookie: (res.headers.get('set-cookie') || '').split(';')[0],
       status: res.status,
       ok: res.ok,
       durationMs: duration,
@@ -50,6 +52,82 @@ async function request(path, options = {}, { anonymous = false } = {}) {
       error: err.message
     };
   }
+}
+
+/** Hesap ayrımı: ikinci bir müşteri hesabı ilk hesabın verisini göremez ve değiştiremez */
+async function tenantTests(results) {
+  const json = { 'Content-Type': 'application/json' };
+  const stamp = Date.now();
+  const check = (name, res, ok) => {
+    res.ok = Boolean(ok);
+    res.path = `${res.path} (${name})`;
+    results.push(res);
+    console.log(`[${res.ok ? '✅ BAŞARILI' : '❌ HATA'}] ${res.method} ${res.path} -> ${res.status} (${res.durationMs}ms)`);
+  };
+
+  const weak = await request('/api/auth/register', { method: 'POST', headers: json, body: JSON.stringify({ name: 'B', email: `b${stamp}@test.com`, password: '123', organizationName: 'B Ajans', acceptTerms: true }) }, { anonymous: true });
+  check('Kısa şifre reddedilir', weak, weak.status === 400);
+
+  const reg = await request('/api/auth/register', { method: 'POST', headers: json, body: JSON.stringify({ name: 'Test B', email: `b${stamp}@test.com`, password: 'testsifre123', organizationName: 'B Ajans', accountType: 'agency', acceptTerms: true }) }, { anonymous: true });
+  check('Yeni hesap kaydı (deneme)', reg, reg.status === 201 && reg.data?.data?.organization?.planStatus === 'trialing');
+  const cookieB = reg.setCookie;
+
+  const dup = await request('/api/auth/register', { method: 'POST', headers: json, body: JSON.stringify({ name: 'Test B', email: `b${stamp}@test.com`, password: 'testsifre123', organizationName: 'X', acceptTerms: true }) }, { anonymous: true });
+  check('Aynı e-posta ikinci kez kaydolamaz', dup, dup.status === 409);
+
+  const clientsB = await request('/api/clients', {}, { cookie: cookieB });
+  check('Yeni hesap başka hesabın markalarını görmez', clientsB, clientsB.ok && Array.isArray(clientsB.data?.data) && clientsB.data.data.length === 0);
+
+  const readA = await request('/api/clients/mandalinclean', {}, { cookie: cookieB });
+  check('Başka hesabın markası okunamaz', readA, readA.status === 404);
+
+  const delA = await request('/api/clients/client-mandalin', { method: 'DELETE' }, { cookie: cookieB });
+  check('Başka hesabın markası silinemez', delA, delA.status === 404);
+
+  const stillA = await request('/api/clients/mandalinclean');
+  check('İlk hesabın markası yerinde', stillA, stillA.status === 200);
+
+  const prodB = await request('/api/products', {}, { cookie: cookieB });
+  check('Başka hesabın ürünleri görünmez', prodB, prodB.ok && prodB.data?.data?.length === 0);
+
+  const intB = await request('/api/integrations', {}, { cookie: cookieB });
+  check('Başka hesabın API anahtarı görünmez', intB, intB.ok && !JSON.stringify(intB.data).includes('hasStoredValue":true'));
+
+  const taskB = await request('/api/tasks', { method: 'POST', headers: json, body: JSON.stringify({ title: 'x', clientSlug: 'mandalinclean' }) }, { cookie: cookieB });
+  check('Başka hesabın markasına görev eklenemez', taskB, taskB.status === 404);
+
+  let lastStatus = 0;
+  for (let i = 1; i <= 6; i++) {
+    const r = await request('/api/clients', { method: 'POST', headers: json, body: JSON.stringify({ name: `B Marka ${i}` }) }, { cookie: cookieB });
+    lastStatus = r.status;
+    if (i === 5) check('Deneme hesabı 5 marka ekleyebilir', r, r.status === 201);
+    if (i === 6) check('6. marka paket sınırına takılır', r, r.status === 402);
+  }
+
+  const member = await request('/api/team', { method: 'POST', headers: json, body: JSON.stringify({ name: 'Ekip Üyesi', email: `m${stamp}@test.com`, role: 'creative', password: 'uyesifre123' }) }, { cookie: cookieB });
+  check('Şifreli ekip üyesi eklenir', member, member.status === 201 && member.data?.data?.hasLogin === true);
+
+  const memberLogin = await request('/api/auth/login', { method: 'POST', headers: json, body: JSON.stringify({ email: `m${stamp}@test.com`, password: 'uyesifre123' }) }, { anonymous: true });
+  check('Ekip üyesi kendi şifresiyle girer', memberLogin, memberLogin.ok && memberLogin.data?.data?.role === 'member');
+
+  const memberClients = await request('/api/clients', {}, { cookie: memberLogin.setCookie });
+  check('Ekip üyesi kendi ajansının markalarını görür', memberClients, memberClients.ok && memberClients.data?.data?.length === 5);
+
+  const memberTeam = await request('/api/team', { method: 'POST', headers: json, body: JSON.stringify({ name: 'x', email: `x${stamp}@test.com` }) }, { cookie: memberLogin.setCookie });
+  check('Ekip üyesi ekip yönetemez', memberTeam, memberTeam.status === 403);
+
+  const link = await request('/api/clients/mandalinclean/portal-link');
+  const key = link.data?.data?.key || '';
+  const portalOk = await request('/api/clients/mandalinclean', { headers: { 'x-portal-client': 'mandalinclean', 'x-portal-key': key } }, { anonymous: true });
+  check('Portal anahtarı kendi markasını açar', portalOk, portalOk.status === 200 && portalOk.data?.data?.slug === 'mandalinclean');
+
+  const orgB = reg.data?.data?.orgId || '';
+  const forged = `${orgB}.${key.split('.')[1] || ''}`;
+  const portalForged = await request('/api/clients/mandalinclean', { headers: { 'x-portal-client': 'mandalinclean', 'x-portal-key': forged } }, { anonymous: true });
+  check('Portal anahtarı başka hesaba taşınamaz', portalForged, portalForged.status === 401);
+
+  const notif = await request('/api/notifications', {}, { cookie: cookieB });
+  check('Bildirimler hesaba özel', notif, notif.ok && notif.data?.data?.length === 0);
 }
 
 async function runAllTests() {
@@ -277,6 +355,9 @@ async function runAllTests() {
   if (testRuleId) {
     await request(`/api/rules?id=${testRuleId}`, { method: 'DELETE' });
   }
+
+  console.log('\n--- Hesap ayrımı ve SaaS testleri ---');
+  await tenantTests(results);
 
   console.log('\n=== TEST ÖZETİ ===');
   const passed = results.filter(r => r.ok).length;

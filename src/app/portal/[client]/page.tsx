@@ -94,20 +94,18 @@ export default function ClientPortalPage({ params }: { params: Promise<{ client:
   const handleRequestRevision = async (taskId: string, title: string) => {
     if (!revisionNote.trim()) return;
     try {
-      const currentTask = tasks.find(t => t.id === taskId);
-      const newDesc = `${currentTask?.description || ''}\n[Müşteri Revize Notu]: ${revisionNote}`.trim();
       const res = await fetch('/api/tasks', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', ...portalHeaders() },
         body: JSON.stringify({ 
           id: taskId, 
           stage: 'in_progress',
-          description: newDesc
+          revisionNote
         })
       });
       const json = await res.json();
       if (json.success) {
-        setTasks(prev => prev.map(t => t.id === taskId ? { ...t, stage: 'in_progress', description: newDesc } : t));
+        setTasks(prev => prev.map(t => t.id === taskId ? { ...t, stage: 'in_progress', description: json.data.description } : t));
         setRevisionTaskId(null);
         setRevisionNote('');
         setActionSuccessMsg(`Revize talebiniz ajans ekibine iletildi: "${title}"`);

@@ -1,15 +1,24 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getGeminiClient, GEMINI_MODELS } from '@/lib/gemini';
+import { createPortalKey } from '@/lib/auth';
+import { requireTenant } from '@/lib/tenant';
 
 export async function POST(request: Request) {
   try {
+    const tenant = await requireTenant(request);
+    if (tenant instanceof NextResponse) return tenant;
+
     const body = await request.json();
-    const { clientSlug = 'mandalinclean', period = 'Haftalık Büyüme & ROAS Raporu' } = body;
+    const { clientSlug = '', period = 'Haftalık Büyüme & ROAS Raporu' } = body;
+    if (!clientSlug) {
+      return NextResponse.json({ error: 'Rapor için bir marka seçin' }, { status: 400 });
+    }
 
     // 1. Fetch real client and campaign data
-    let client = await prisma.client.findFirst({
+    const client = await prisma.client.findFirst({
       where: {
+        organizationId: tenant.orgId,
         OR: [
           { slug: clientSlug },
           { slug: { contains: clientSlug.replace(/[^a-z0-9]/g, '') } },
@@ -20,28 +29,25 @@ export async function POST(request: Request) {
     });
 
     if (!client) {
-      // Graceful fallback to first client in DB so reports never fail
-      client = await prisma.client.findFirst({
-        include: { campaigns: true }
-      });
-    }
-
-    if (!client) {
       return NextResponse.json({ error: 'Müşteri kaydı bulunamadı' }, { status: 404 });
     }
 
     // 2. Fetch tasks for this client
     const tasks = await prisma.agencyTask.findMany({
-      where: { clientSlug },
+      where: { clientSlug: client.slug, organizationId: tenant.orgId },
       orderBy: { createdAt: 'desc' }
     });
 
     const campaigns = client.campaigns || [];
     const totalSpent = campaigns.reduce((acc, c) => acc + (c.spent || 0), 0);
     const totalRevenue = campaigns.reduce((acc, c) => acc + (c.revenue || 0), 0);
-    const roas = totalSpent > 0 ? (totalRevenue / totalSpent).toFixed(2) : '4.80';
-    const netProfit = totalRevenue > totalSpent ? totalRevenue - totalSpent : Math.round(totalRevenue * 0.45);
-    const poas = totalSpent > 0 ? (netProfit / totalSpent).toFixed(2) : '2.15';
+    // Without spend there is nothing to report; never show made-up ratios
+    const roas = totalSpent > 0 ? (totalRevenue / totalSpent).toFixed(2) : '0';
+    const netProfit = totalRevenue - totalSpent;
+    const poas = totalSpent > 0 ? (netProfit / totalSpent).toFixed(2) : '0';
+
+    const portalKey = await createPortalKey(tenant.orgId, client.slug);
+    const portalUrl = portalKey ? `${new URL(request.url).origin}/portal/${client.slug}?key=${encodeURIComponent(portalKey)}` : '';
 
     const approvedTasks = tasks.filter(t => t.stage === 'published' || t.stage === 'ready_to_publish');
     const pendingTasks = tasks.filter(t => t.stage === 'review');
@@ -52,7 +58,8 @@ export async function POST(request: Request) {
 
     if (gemini) {
       const prompt = `
-Sen Türkiye'nin en iyi büyüme ve performans pazarlama ajansı İgeAds'in Kıdemli Büyüme Direktörüsün.
+Sen "${tenant.org.name}" adlı performans pazarlama ekibinin Kıdemli Büyüme Direktörüsün.
+Sadece aşağıda verilen gerçek rakamları ve görevleri kullan; verilmeyen bir işlemi yapılmış gibi yazma.
 Aşağıdaki müşteri ve canlı kampanya verilerini inceleyerek ajans adına müşterinin patronuna/pazarlama yöneticisine sunulacak haftalık/aylık bir "Yönetici Özeti ve WhatsApp İletişim Raporu" hazırla.
 
 MÜŞTERİ BİLGİLERİ:
@@ -115,23 +122,21 @@ Lütfen yanıtını SADECE aşağıdaki JSON formatında ver (başka hiçbir met
     // 4. Guaranteed high-quality fallback if AI is unreachable
     if (!reportData) {
       reportData = {
-        executiveSummary: `${client.name} için yürütülen ${client.sector} odaklı reklam yatırımlarında ${roas}x ROAS ile toplam ₺${totalRevenue.toLocaleString('tr-TR')} ciro üretilmiş olup kârlılık hedeflerimiz planlanan takvimin üzerinde ilerlemektedir.`,
+        executiveSummary: totalSpent > 0
+          ? `${client.name} için bu dönemde ₺${totalSpent.toLocaleString('tr-TR')} reklam harcamasıyla ₺${totalRevenue.toLocaleString('tr-TR')} ciro kaydedildi (${roas}x ROAS).`
+          : `${client.name} için bu dönemde kayıtlı reklam harcaması bulunmuyor. Reklam hesabı bağlanıp veri eşitlendiğinde rapor rakamlarla dolacaktır.`,
         performanceWins: [
-          `Toplam ₺${totalSpent.toLocaleString('tr-TR')} reklam harcaması ile ₺${totalRevenue.toLocaleString('tr-TR')} brüt ciro üretildi (${roas}x ROAS).`,
-          `Tahmini net kasa getirisi ₺${netProfit.toLocaleString('tr-TR')} (${poas}x POAS) seviyesine ulaştı.`,
-          `${approvedTasks.length} adet yeni reklam kancası ve kreatif seti başarıyla yayına alındı.`
+          `Toplam ₺${totalSpent.toLocaleString('tr-TR')} reklam harcaması, ₺${totalRevenue.toLocaleString('tr-TR')} ciro (${roas}x ROAS).`,
+          `Reklam harcaması düşüldükten sonra kalan ciro: ₺${netProfit.toLocaleString('tr-TR')} (${poas}x).`,
+          `${approvedTasks.length} kreatif yayına alındı veya yayına hazır.`
         ],
-        optimizationsDone: [
-          `Düşük dönüşüm getiren saat dilimleri tespit edilerek bütçe yüksek dönüşüm saatlerine kaydırıldı.`,
-          `${client.sector} sektörüne özel kurgulanan kanca kopyaları A/B testine tabi tutuldu.`,
-          `CPA (Müşteri Başına Edinme Maliyeti) optimize edilerek net kâr marjı korundu.`
-        ],
-        nextWeekPlan: [
-          `Yeni video kancaları ile soğuk hedef kitlede hacim artırma testleri başlatılacak.`,
-          `Yüksek ROAS getiren aktif kampanyalara kademeli %15 bütçe ölçekleme uygulanacak.`,
-          `Müşteri onayındaki bekleyen kreatifler yayına alınarak hafta sonu trafiği maksimize edilecek.`
-        ],
-        whatsAppMessage: `🚀 *${client.name} - Haftalık Büyüme & ROAS Raporu*\n\nMerhaba Sn. Ortak,\nAjansımız tarafından bu hafta yürütülen performans çalışmalarının özeti:\n\n💰 *Harcama:* ₺${totalSpent.toLocaleString('tr-TR')}\n📈 *Üretilen Ciro:* ₺${totalRevenue.toLocaleString('tr-TR')}\n🎯 *Canlı ROAS:* ${roas}x\n💎 *Net Kasa Katkısı:* ₺${netProfit.toLocaleString('tr-TR')} (${poas}x POAS)\n\n✅ *Bu Hafta Yapılanlar:* Reklam kancaları güncellendi, düşük performanslı reklamlar durdurulup bütçe en kârlı kanallara yönlendirildi.\n\nDetaylı canlı portalınızı incelemek için: https://igeads.agency/portal/${client.slug}\n\nİyi çalışmalar dileriz,\n*İgeAds Performans Ekibi*`
+        optimizationsDone: approvedTasks.length > 0
+          ? approvedTasks.slice(0, 3).map(t => `Kreatif tamamlandı: ${t.title}`)
+          : ['Bu dönemde tamamlanan kreatif görevi kaydı yok.'],
+        nextWeekPlan: pendingTasks.length > 0
+          ? pendingTasks.slice(0, 3).map(t => `Onay bekleyen kreatif: ${t.title}`)
+          : ['Önümüzdeki dönemin planını ekip panosuna görev olarak ekleyin.'],
+        whatsAppMessage: `🚀 *${client.name} - Haftalık Büyüme & ROAS Raporu*\n\nMerhaba Sn. Ortak,\nAjansımız tarafından bu hafta yürütülen performans çalışmalarının özeti:\n\n💰 *Harcama:* ₺${totalSpent.toLocaleString('tr-TR')}\n📈 *Üretilen Ciro:* ₺${totalRevenue.toLocaleString('tr-TR')}\n🎯 *Canlı ROAS:* ${roas}x\n💎 *Net Kasa Katkısı:* ₺${netProfit.toLocaleString('tr-TR')} (${poas}x POAS)\n\n✅ *Yayına alınan kreatif sayısı:* ${approvedTasks.length}\n\nDetaylı canlı portalınızı incelemek için: ${portalUrl}\n\nİyi çalışmalar dileriz,\n*${tenant.org.name}*`
       };
     }
 

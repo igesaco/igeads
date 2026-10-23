@@ -1,12 +1,10 @@
 import { NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
-import { SESSION_COOKIE, verifySessionToken } from '@/lib/auth';
+import { getTenant, publicOrganization } from '@/lib/tenant';
 
 export async function GET() {
-  const cookieStore = await cookies();
-  const user = await verifySessionToken(cookieStore.get(SESSION_COOKIE)?.value);
-  if (!user) {
+  const tenant = await getTenant();
+  if (!tenant) {
     return NextResponse.json({ success: false, error: 'Oturum bulunamadı' }, { status: 401 });
   }
-  return NextResponse.json({ success: true, data: user });
+  return NextResponse.json({ success: true, data: { ...tenant.session, organization: publicOrganization(tenant.org) } });
 }

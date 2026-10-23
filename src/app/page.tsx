@@ -44,12 +44,18 @@ export default function Home() {
   const [isReportModalOpen, setIsReportModalOpen] = useState<boolean>(false);
   const [isNotificationDrawerOpen, setIsNotificationDrawerOpen] = useState<boolean>(false);
   
-  // Current Logged in User State (Agency Admin by default)
+  // Signed-in user and their organization (restored from the httpOnly session cookie)
   const [currentUser, setCurrentUser] = useState<{
     name: string;
     email: string;
     role: string;
     type: 'agency' | 'business';
+    organization?: {
+      name: string;
+      plan: string;
+      planStatus: 'trialing' | 'active' | 'expired';
+      daysLeft: number | null;
+    };
   } | null>(null);
   const [authChecked, setAuthChecked] = useState(false);
 
@@ -82,7 +88,7 @@ export default function Home() {
       .finally(() => setAuthChecked(true));
   }, []);
 
-  const handleUserLogin = (userData: { name: string; email: string; role: string; type: 'agency' | 'business' }) => {
+  const handleUserLogin = (userData: any) => {
     setCurrentUser(userData);
     loadClients();
   };
@@ -171,6 +177,27 @@ export default function Home() {
         />
 
         <main className="flex-1 p-6 md:p-8 max-w-7xl w-full mx-auto">
+          {currentUser.organization?.planStatus === 'expired' && (
+            <div className="mb-6 p-4 rounded-2xl border border-rose-500/40 bg-rose-950/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+              <span className="text-rose-200">
+                <strong>Deneme süreniz veya aboneliğiniz sona erdi.</strong> Verilerinizi görebilirsiniz, ancak değişiklik yapmak için bir paket seçmeniz gerekiyor.
+              </span>
+              <button onClick={() => setActiveTab('pricing')} className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 font-bold text-white shrink-0 cursor-pointer">
+                Paket Seç
+              </button>
+            </div>
+          )}
+          {currentUser.organization?.planStatus === 'trialing' && currentUser.organization.daysLeft !== null && (
+            <div className="mb-6 p-3 rounded-2xl border border-indigo-500/30 bg-indigo-950/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+              <span className="text-indigo-200">
+                Ücretsiz denemenizin bitmesine <strong>{currentUser.organization.daysLeft} gün</strong> kaldı.
+              </span>
+              <button onClick={() => setActiveTab('pricing')} className="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 font-bold text-white shrink-0 cursor-pointer">
+                Paketleri Gör
+              </button>
+            </div>
+          )}
+
           {activeTab === 'dashboard' && (
             <DashboardOverview 
               activeClientName={activeClient}
@@ -225,14 +252,6 @@ export default function Home() {
             <AgencyHub 
               activeClientName={activeClient} 
               onSelectClient={(name) => setActiveClient(name)} 
-              onSwitchUser={(member) => {
-                handleUserLogin({
-                  name: member.name,
-                  email: member.email,
-                  role: member.roleTitle || member.role,
-                  type: 'agency'
-                });
-              }}
             />
           )}
 

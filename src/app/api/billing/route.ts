@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { requireTenant } from '@/lib/tenant';
 
 const VALID_STATUSES = ['paid', 'pending', 'due'];
 
@@ -9,10 +10,12 @@ function isoDate(d: Date) {
 
 export async function GET(request: Request) {
   try {
+    const tenant = await requireTenant(request);
+    if (tenant instanceof NextResponse) return tenant;
     const { searchParams } = new URL(request.url);
     const clientSlug = searchParams.get('clientSlug');
 
-    const contracts = await prisma.agencyContract.findMany({ orderBy: { createdAt: 'desc' } });
+    const contracts = await prisma.agencyContract.findMany({ where: { organizationId: tenant.orgId }, orderBy: { createdAt: 'desc' } });
     const filtered = clientSlug && clientSlug !== 'all'
       ? contracts.filter(c => c.clientSlug === clientSlug)
       : contracts;
@@ -40,6 +43,8 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
+    const tenant = await requireTenant(request);
+    if (tenant instanceof NextResponse) return tenant;
     const body = await request.json();
     const monthlyRetainer = Number(body.monthlyRetainer) || 30000;
     const commissionRate = Number(body.commissionRate) || 10;
@@ -52,6 +57,7 @@ export async function POST(request: Request) {
 
     const newContract = await prisma.agencyContract.create({
       data: {
+        organizationId: tenant.orgId,
         clientSlug: body.clientSlug || 'newclient',
         clientName: body.clientName || 'Yeni Müşteri',
         planType: body.planType || 'retainer_commission',
@@ -82,6 +88,8 @@ export async function POST(request: Request) {
 
 export async function PATCH(request: Request) {
   try {
+    const tenant = await requireTenant(request);
+    if (tenant instanceof NextResponse) return tenant;
     const body = await request.json();
     const { id, status } = body;
 
@@ -89,7 +97,7 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ success: false, error: 'Geçersiz sözleşme ID veya durum' }, { status: 400 });
     }
 
-    const existing = await prisma.agencyContract.findUnique({ where: { id } });
+    const existing = await prisma.agencyContract.findFirst({ where: { id, organizationId: tenant.orgId } });
     if (!existing) {
       return NextResponse.json({ success: false, error: 'Sözleşme bulunamadı' }, { status: 404 });
     }

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getGeminiClient, GEMINI_MODEL, GEMINI_MODELS, SYSTEM_PROMPT_COPILOT } from '@/lib/gemini';
 import { prisma } from '@/lib/prisma';
+import { requireTenant } from '@/lib/tenant';
 import { generateAiImage } from '@/lib/image-gen';
 
 function extractTopic(prompt: string): string {
@@ -32,6 +33,8 @@ function generateDynamicHooks(topic: string) {
 
 export async function POST(request: Request) {
   try {
+    const tenant = await requireTenant(request);
+    if (tenant instanceof NextResponse) return tenant;
     let body;
     try {
       body = await request.json();
@@ -79,6 +82,7 @@ export async function POST(request: Request) {
       if (activeClient && activeClient !== 'Tüm Müşteriler') {
         clientInfo = await prisma.client.findFirst({
           where: {
+            organizationId: tenant.orgId,
             OR: [
               { name: { contains: activeClient } },
               { slug: { contains: activeClient.toLowerCase().replace(/[^a-z0-9]/g, '') } }
@@ -89,8 +93,8 @@ export async function POST(request: Request) {
       }
 
       [liveCampaigns, liveProducts] = await Promise.all([
-        prisma.campaign.findMany({ select: { name: true, platform: true, dailyBudget: true, roas: true, poas: true, status: true, fatigueScore: true, clientId: true } }),
-        prisma.product.findMany({ select: { name: true, stock: true, price: true, isBuybox: true, marketplace: true, clientId: true } })
+        prisma.campaign.findMany({ where: { organizationId: tenant.orgId }, select: { name: true, platform: true, dailyBudget: true, roas: true, poas: true, status: true, fatigueScore: true, clientId: true } }),
+        prisma.product.findMany({ where: { organizationId: tenant.orgId }, select: { name: true, stock: true, price: true, isBuybox: true, marketplace: true, clientId: true } })
       ]);
     } catch (e) {
       console.warn('DB fetch in copilot fallback:', e);

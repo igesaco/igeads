@@ -38,6 +38,8 @@ interface TeamMember {
   assignedClients: string;
   status: string;
   avatarColor: string;
+  hasLogin?: boolean;
+  lastLoginAt?: string | null;
 }
 
 interface AgencyTask {
@@ -57,10 +59,9 @@ interface AgencyTask {
 
 interface Props {
   activeClientName?: string;
-  onSwitchUser?: (member: TeamMember) => void;
 }
 
-export default function AgencyTeamWorkflowHub({ activeClientName = '', onSwitchUser }: Props) {
+export default function AgencyTeamWorkflowHub({ activeClientName = '' }: Props) {
   const [activeTab, setActiveTab] = useState<'team' | 'kanban'>('team');
   const [selectedClientFilter, setSelectedClientFilter] = useState<string>('all');
   const [availableClients, setAvailableClients] = useState<any[]>([]);
@@ -78,8 +79,10 @@ export default function AgencyTeamWorkflowHub({ activeClientName = '', onSwitchU
     role: 'media_buyer',
     roleTitle: '',
     phone: '',
-    assignedClients: '*'
+    assignedClients: '*',
+    password: ''
   });
+  const [memberError, setMemberError] = useState<string | null>(null);
 
   // New Task Modal State
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
@@ -141,46 +144,58 @@ export default function AgencyTeamWorkflowHub({ activeClientName = '', onSwitchU
       const json = await res.json();
       if (json.success) {
         setIsMemberModalOpen(false);
+        setMemberError(null);
         setMemberForm({
           name: '',
           email: '',
           role: 'media_buyer',
           roleTitle: '',
           phone: '',
-          assignedClients: '*'
+          assignedClients: '*',
+          password: ''
         });
         await fetchData();
+      } else {
+        setMemberError(json.error || 'Ekip üyesi eklenemedi');
       }
     } catch (e) {
       console.error('Error creating member:', e);
     }
   };
 
+  const handleDeleteMember = async (member: TeamMember) => {
+    if (!window.confirm(`${member.name} ekipten ve varsa giriş hesabından silinsin mi?`)) return;
+    const res = await fetch(`/api/team?id=${member.id}`, { method: 'DELETE' });
+    const json = await res.json().catch(() => ({}));
+    if (!json.success) {
+      window.alert(json.error || 'Ekip üyesi silinemedi');
+      return;
+    }
+    await fetchData();
+  };
+
   const handleCreateTask = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!taskForm.title.trim()) return;
-
-    const slug = taskForm.clientName.toLowerCase().replace(/[^a-z0-9]/g, '');
 
     try {
       const res = await fetch('/api/tasks', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...taskForm, clientSlug: slug })
+        body: JSON.stringify(taskForm)
       });
       const json = await res.json();
       if (json.success) {
         setIsTaskModalOpen(false);
-        setTaskForm({
+        setTaskForm(prev => ({
+          ...prev,
           title: '',
           description: '',
-          clientName: activeClientName || 'Mandalin Clean',
-          clientSlug: 'mandalinclean',
-          assignedTo: 'Emre Kara',
+          assignedTo: '',
           priority: 'high',
           channel: 'meta',
           dueDate: 'Bu hafta'
-        });
+        }));
         await fetchData();
       }
     } catch (e) {
@@ -347,16 +362,18 @@ export default function AgencyTeamWorkflowHub({ activeClientName = '', onSwitchU
                   </div>
                 </div>
 
-                <button
-                  onClick={() => {
-                    if (onSwitchUser) onSwitchUser(member);
-                    alert(`"${member.name}" (${member.roleTitle}) kimliğiyle oturum simüle edildi.`);
-                  }}
-                  className="w-full py-2 rounded-xl bg-[#141b2a] hover:bg-indigo-600/30 text-slate-300 hover:text-white border border-white/5 hover:border-indigo-500/40 text-xs font-semibold transition-all flex items-center justify-center gap-1.5 cursor-pointer"
-                >
-                  <UserCheck className="w-3.5 h-3.5 text-indigo-400" />
-                  <span>Bu Rol Olarak Görüntüle</span>
-                </button>
+                <div className="flex items-center justify-between gap-2 text-[11px]">
+                  <span className={`flex items-center gap-1.5 ${member.hasLogin ? 'text-emerald-400' : 'text-slate-500'}`}>
+                    <UserCheck className="w-3.5 h-3.5" />
+                    {member.hasLogin ? 'Giriş hesabı var' : 'Giriş hesabı yok'}
+                  </span>
+                  <button
+                    onClick={() => handleDeleteMember(member)}
+                    className="px-2.5 py-1 rounded-lg text-rose-300 hover:text-white hover:bg-rose-600/40 border border-rose-500/20 cursor-pointer"
+                  >
+                    Sil
+                  </button>
+                </div>
               </div>
             ))}
           </div>
@@ -668,6 +685,23 @@ export default function AgencyTeamWorkflowHub({ activeClientName = '', onSwitchU
                 />
               </div>
 
+              <div>
+                <label className="block text-slate-400 mb-1 font-medium">Giriş Şifresi (isteğe bağlı):</label>
+                <input
+                  type="password"
+                  value={memberForm.password}
+                  onChange={(e) => setMemberForm({ ...memberForm, password: e.target.value })}
+                  placeholder="En az 8 karakter"
+                  autoComplete="new-password"
+                  className="w-full bg-[#121826] border border-[#1f293d] rounded-xl px-3 py-2 text-white focus:outline-none focus:border-cyan-500"
+                />
+                <p className="text-[10px] text-slate-500 mt-1">
+                  Şifre verirseniz bu kişi kendi e-postası ve bu şifreyle giriş yapabilir. Şifreyi kendisine siz iletin.
+                </p>
+              </div>
+
+              {memberError && <p className="text-rose-400 text-xs font-medium">{memberError}</p>}
+
               <div className="pt-3 flex justify-end gap-2 border-t border-white/10">
                 <button type="button" onClick={() => setIsMemberModalOpen(false)} className="px-4 py-2 text-slate-400">İptal</button>
                 <button type="submit" className="px-4 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 font-bold text-white shadow-md">Çalışanı Ekle</button>
@@ -704,14 +738,20 @@ export default function AgencyTeamWorkflowHub({ activeClientName = '', onSwitchU
 
               <div>
                 <label className="text-slate-300 block mb-1">Hangi Marka İçin? *</label>
-                <input
-                  type="text"
+                <select
                   required
-                  value={taskForm.clientName}
-                  onChange={(e) => setTaskForm({ ...taskForm, clientName: e.target.value })}
-                  placeholder="Mandalin Clean, Duru Diş..."
+                  value={taskForm.clientSlug}
+                  onChange={(e) => {
+                    const client = availableClients.find(c => c.slug === e.target.value);
+                    setTaskForm({ ...taskForm, clientSlug: e.target.value, clientName: client?.name || '' });
+                  }}
                   className="w-full bg-[#121826] border border-[#1f293d] rounded-xl px-3 py-2 text-white focus:outline-none focus:border-purple-500"
-                />
+                >
+                  {availableClients.length === 0 && <option value="">Önce bir marka ekleyin</option>}
+                  {availableClients.map(c => (
+                    <option key={c.slug} value={c.slug}>{c.name}</option>
+                  ))}
+                </select>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
