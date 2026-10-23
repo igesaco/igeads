@@ -8,14 +8,17 @@ export function getGeminiClient(): GoogleGenAI | null {
 
 export const geminiClient = getGeminiClient();
 
-// High-speed production models with zero downtime and instant response
-export const GEMINI_MODELS = [
+// Models tried in order. Override with GEMINI_MODELS="model-a,model-b" when a model is renamed or retired,
+// since an unknown model name silently falls back to the template responses.
+const DEFAULT_GEMINI_MODELS = [
   'gemini-3.1-flash-lite',
   'gemini-3.5-flash-lite',
   'gemini-3.7-flash',
   'gemini-3.8-flash'
 ];
-export const GEMINI_MODEL = 'gemini-3.1-flash-lite';
+const envModels = (process.env.GEMINI_MODELS || '').split(',').map(m => m.trim()).filter(Boolean);
+export const GEMINI_MODELS = envModels.length > 0 ? envModels : DEFAULT_GEMINI_MODELS;
+export const GEMINI_MODEL = GEMINI_MODELS[0];
 
 export const SYSTEM_PROMPT_COPILOT = `
 Sen "İgeAds Otonom Reklam ve E-Ticaret Asistanı"sın. E-ticaret yöneticilerine, performans pazarlamacılarına ve ajanslara hizmet veriyorsun.

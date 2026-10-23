@@ -32,10 +32,11 @@ export async function testMetaConnection(credentials: MetaCredentials): Promise<
 
   // Clean account id (remove 'act_' prefix if user entered it)
   const cleanId = adAccountId.replace(/^act_/, '').trim();
-  const url = `https://graph.facebook.com/v21.0/act_${cleanId}?fields=name,account_status,currency,amount_spent&access_token=${accessToken.trim()}`;
+  const url = `https://graph.facebook.com/v21.0/act_${cleanId}?fields=name,account_status,currency,amount_spent`;
 
   try {
-    const res = await fetch(url, { method: 'GET' });
+    // Token goes in the Authorization header so it does not end up in URL logs
+    const res = await fetch(url, { method: 'GET', headers: { Authorization: `Bearer ${accessToken.trim()}` } });
     const pingMs = Date.now() - start;
     const data = await res.json();
 
@@ -75,10 +76,10 @@ export async function testMetaConnection(credentials: MetaCredentials): Promise<
 export async function fetchMetaCampaigns(credentials: MetaCredentials) {
   const { accessToken, adAccountId } = credentials;
   const cleanId = adAccountId.replace(/^act_/, '').trim();
-  const url = `https://graph.facebook.com/v21.0/act_${cleanId}/campaigns?fields=id,name,status,daily_budget,lifetime_budget,insights{spend,purchase_roas,cpc,ctr,impressions,clicks}&limit=25&access_token=${accessToken.trim()}`;
+  const url = `https://graph.facebook.com/v21.0/act_${cleanId}/campaigns?fields=id,name,status,daily_budget,lifetime_budget,insights.date_preset(last_30d){spend,purchase_roas,cpc,ctr,impressions,clicks}&limit=25`;
 
   try {
-    const res = await fetch(url);
+    const res = await fetch(url, { headers: { Authorization: `Bearer ${accessToken.trim()}` } });
     const data = await res.json();
     if (!res.ok || data.error) {
       throw new Error(data.error?.message || 'Meta kampanyaları alınamadı');

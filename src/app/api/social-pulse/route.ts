@@ -197,6 +197,8 @@ export async function GET(request: Request) {
       data: {
         mode,
         clientSlug,
+        // Platform shares are modelled estimates until GA4 / Cloudflare Radar clients are implemented
+        dataSource: 'simulated',
         totalActiveAudience,
         lastUpdated: now.toLocaleTimeString('tr-TR'),
         platforms,
@@ -238,27 +240,25 @@ export async function POST(request: Request) {
         update: {
           name: provider === 'ga4' ? 'Google Analytics 4 Realtime' : 'Cloudflare Radar Pulse',
           category: 'analytics',
-          connected: true,
+          connected: false,
           credentials: JSON.stringify(credentials || {}),
-          lastSync: new Date(),
-          status: 'active'
+          status: 'configured'
         },
         create: {
           provider,
           name: provider === 'ga4' ? 'Google Analytics 4 Realtime' : 'Cloudflare Radar Pulse',
           category: 'analytics',
-          connected: true,
+          connected: false,
           accountName: `${provider.toUpperCase()} Canlı Akış`,
           credentials: JSON.stringify(credentials || {}),
-          lastSync: new Date(),
-          status: 'active'
+          status: 'configured'
         }
       });
 
       return NextResponse.json({
         success: true,
-        message: `${provider.toUpperCase()} API anahtarları kaydedildi ve canlı akış doğrulandı.`,
-        data: saved
+        message: `${provider.toUpperCase()} API anahtarları kaydedildi. Canlı veri bağlantısı henüz desteklenmiyor; ekrandaki veriler tahminidir.`,
+        data: { id: saved.id, provider: saved.provider, connected: saved.connected, status: saved.status }
       });
     }
 

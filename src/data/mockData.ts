@@ -71,7 +71,7 @@ export const mockIntegrations: any[] = [
     badgeColor: 'bg-slate-500/20 text-slate-400 border-slate-500/30',
     syncFrequency: 'Her 5 dakikada bir',
     fields: [
-      { label: 'Pixel ID & CAPI Token', placeholder: 'EAAG...', value: '', isSecret: true },
+      { label: 'Sistem Kullanıcısı Access Token (ads_read)', placeholder: 'EAAG...', value: '', isSecret: true },
       { label: 'Ad Account ID', placeholder: 'act_...', value: '' }
     ]
   },

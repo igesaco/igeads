@@ -149,11 +149,18 @@ export default function ClientsHub({ activeClientSlug, onSelectClient, onNavigat
     }
   };
 
-  const copyPortalLink = (slug: string) => {
-    const url = `${window.location.origin}/portal/${slug}`;
-    navigator.clipboard.writeText(url);
-    setCopiedSlug(slug);
-    setTimeout(() => setCopiedSlug(null), 2000);
+  const copyPortalLink = async (slug: string) => {
+    try {
+      // Portal links include a per-brand access key generated on the server
+      const res = await fetch(`/api/clients/${slug}/portal-link`);
+      const json = await res.json();
+      if (!json.success) throw new Error(json.error || 'Portal linki oluşturulamadı');
+      await navigator.clipboard.writeText(json.data.url);
+      setCopiedSlug(slug);
+      setTimeout(() => setCopiedSlug(null), 2000);
+    } catch (e) {
+      console.error('Portal link error:', e);
+    }
   };
 
   const filteredClients = clients.filter(c => 

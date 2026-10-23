@@ -1,76 +1,73 @@
 import { NextResponse } from 'next/server';
+import { prisma } from '@/lib/prisma';
 
-export interface AgencyContract {
-  id: string;
-  clientSlug: string;
-  clientName: string;
-  planType: 'retainer_commission' | 'fixed_retainer' | 'performance_fee';
-  planTitle: string;
-  monthlyRetainer: number;
-  commissionRate: number; // e.g. 8 for 8%
-  currentMonthAdSpend: number;
-  calculatedCommission: number;
-  totalMonthlyFee: number;
-  status: 'paid' | 'pending' | 'due';
-  dueDate: string;
-  lastPaymentDate?: string;
-  contractStartDate: string;
-  contractRenewalDate: string;
-  invoiceNumber: string;
+const VALID_STATUSES = ['paid', 'pending', 'due'];
+
+function isoDate(d: Date) {
+  return d.toISOString().split('T')[0];
 }
 
-const initialContracts: AgencyContract[] = [];
-
-let contractsStore = [...initialContracts];
-
 export async function GET(request: Request) {
-  const { searchParams } = new URL(request.url);
-  const clientSlug = searchParams.get('clientSlug');
+  try {
+    const { searchParams } = new URL(request.url);
+    const clientSlug = searchParams.get('clientSlug');
 
-  let filtered = contractsStore;
-  if (clientSlug && clientSlug !== 'all') {
-    filtered = contractsStore.filter(c => c.clientSlug === clientSlug);
+    const contracts = await prisma.agencyContract.findMany({ orderBy: { createdAt: 'desc' } });
+    const filtered = clientSlug && clientSlug !== 'all'
+      ? contracts.filter(c => c.clientSlug === clientSlug)
+      : contracts;
+
+    const totalMRR = contracts.reduce((acc, c) => acc + c.totalMonthlyFee, 0);
+    const totalPaid = contracts.filter(c => c.status === 'paid').reduce((acc, c) => acc + c.totalMonthlyFee, 0);
+    const totalPending = contracts.filter(c => c.status !== 'paid').reduce((acc, c) => acc + c.totalMonthlyFee, 0);
+
+    return NextResponse.json({
+      success: true,
+      totalCount: filtered.length,
+      summary: {
+        totalMRR,
+        projectedARR: totalMRR * 12,
+        totalCollected: totalPaid,
+        totalPending
+      },
+      data: filtered
+    });
+  } catch (error) {
+    console.error('Contracts fetch error:', error);
+    return NextResponse.json({ success: false, error: 'Sözleşmeler alınamadı' }, { status: 500 });
   }
-
-  const totalMRR = contractsStore.reduce((acc, c) => acc + c.totalMonthlyFee, 0);
-  const totalPaid = contractsStore.filter(c => c.status === 'paid').reduce((acc, c) => acc + c.totalMonthlyFee, 0);
-  const totalPending = contractsStore.filter(c => c.status !== 'paid').reduce((acc, c) => acc + c.totalMonthlyFee, 0);
-
-  return NextResponse.json({
-    success: true,
-    totalCount: filtered.length,
-    summary: {
-      totalMRR,
-      projectedARR: totalMRR * 12,
-      totalCollected: totalPaid,
-      totalPending
-    },
-    data: filtered
-  });
 }
 
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const newContract: AgencyContract = {
-      id: `contract-${Date.now()}`,
-      clientSlug: body.clientSlug || 'newclient',
-      clientName: body.clientName || 'Yeni Müşteri',
-      planType: body.planType || 'retainer_commission',
-      planTitle: body.planTitle || 'Özel Ajans Yönetim Sözleşmesi',
-      monthlyRetainer: Number(body.monthlyRetainer) || 30000,
-      commissionRate: Number(body.commissionRate) || 10,
-      currentMonthAdSpend: Number(body.currentMonthAdSpend) || 50000,
-      calculatedCommission: Math.round(((Number(body.currentMonthAdSpend) || 50000) * (Number(body.commissionRate) || 10)) / 100),
-      totalMonthlyFee: (Number(body.monthlyRetainer) || 30000) + Math.round(((Number(body.currentMonthAdSpend) || 50000) * (Number(body.commissionRate) || 10)) / 100),
-      status: 'pending',
-      dueDate: body.dueDate || '2026-10-15',
-      contractStartDate: new Date().toISOString().split('T')[0],
-      contractRenewalDate: '2027-10-01',
-      invoiceNumber: `İGE-2026-${Math.floor(1000 + Math.random() * 9000)}`
-    };
+    const monthlyRetainer = Number(body.monthlyRetainer) || 30000;
+    const commissionRate = Number(body.commissionRate) || 10;
+    const currentMonthAdSpend = Number(body.currentMonthAdSpend) || 50000;
+    const calculatedCommission = Math.round((currentMonthAdSpend * commissionRate) / 100);
 
-    contractsStore = [newContract, ...contractsStore];
+    const now = new Date();
+    const due = new Date(now.getFullYear(), now.getMonth() + 1, 15);
+    const renewal = new Date(now.getFullYear() + 1, now.getMonth(), now.getDate());
+
+    const newContract = await prisma.agencyContract.create({
+      data: {
+        clientSlug: body.clientSlug || 'newclient',
+        clientName: body.clientName || 'Yeni Müşteri',
+        planType: body.planType || 'retainer_commission',
+        planTitle: body.planTitle || 'Özel Ajans Yönetim Sözleşmesi',
+        monthlyRetainer,
+        commissionRate,
+        currentMonthAdSpend,
+        calculatedCommission,
+        totalMonthlyFee: monthlyRetainer + calculatedCommission,
+        status: 'pending',
+        dueDate: body.dueDate || isoDate(due),
+        contractStartDate: isoDate(now),
+        contractRenewalDate: isoDate(renewal),
+        invoiceNumber: `İGE-${now.getFullYear()}-${Date.now().toString().slice(-6)}`
+      }
+    });
 
     return NextResponse.json({
       success: true,
@@ -88,21 +85,24 @@ export async function PATCH(request: Request) {
     const body = await request.json();
     const { id, status } = body;
 
-    const contractIndex = contractsStore.findIndex(c => c.id === id);
-    if (contractIndex === -1) {
+    if (!id || (status && !VALID_STATUSES.includes(status))) {
+      return NextResponse.json({ success: false, error: 'Geçersiz sözleşme ID veya durum' }, { status: 400 });
+    }
+
+    const existing = await prisma.agencyContract.findUnique({ where: { id } });
+    if (!existing) {
       return NextResponse.json({ success: false, error: 'Sözleşme bulunamadı' }, { status: 404 });
     }
 
-    contractsStore[contractIndex] = {
-      ...contractsStore[contractIndex],
-      ...(status && { status }),
-      ...(status === 'paid' && { lastPaymentDate: new Date().toISOString().split('T')[0] })
-    };
-
-    return NextResponse.json({
-      success: true,
-      data: contractsStore[contractIndex]
+    const updated = await prisma.agencyContract.update({
+      where: { id },
+      data: {
+        ...(status && { status }),
+        ...(status === 'paid' && { lastPaymentDate: isoDate(new Date()) })
+      }
     });
+
+    return NextResponse.json({ success: true, data: updated });
   } catch (error) {
     console.error('Contract update error:', error);
     return NextResponse.json({ success: false, error: 'Sözleşme güncellenemedi' }, { status: 500 });

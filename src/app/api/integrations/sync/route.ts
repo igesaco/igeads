@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { fetchMetaCampaigns } from '@/lib/integrations/meta';
 import { fetchTrendyolProducts } from '@/lib/integrations/trendyol';
 import { fetchHepsiburadaProducts } from '@/lib/integrations/hepsiburada';
+import { hepsiburadaCredentials, metaCredentials, parseStoredCredentials, trendyolCredentials } from '@/lib/integrations/credentials';
 
 export async function POST(request: Request) {
   try {
@@ -25,32 +26,35 @@ export async function POST(request: Request) {
       }, { status: 404 });
     }
 
-    let credentials: any = {};
-    try {
-      credentials = JSON.parse(config.credentials);
-    } catch {
-      credentials = {};
-    }
+    const credentials = parseStoredCredentials(config.credentials);
 
     if (cleanProvider === 'meta') {
-      const accessToken = credentials.accessToken || credentials['Meta System User Token'] || credentials['Access Token'];
-      const adAccountId = credentials.adAccountId || credentials['Reklam Hesabı ID (Ad Account ID)'] || credentials['Ad Account ID'];
+      const { accessToken, adAccountId } = metaCredentials(credentials);
 
       if (!accessToken || !adAccountId) {
         return NextResponse.json({ success: false, error: 'Meta Access Token veya Ad Account ID eksik.' }, { status: 400 });
       }
 
       const metaCampaigns = await fetchMetaCampaigns({ accessToken, adAccountId });
+
+      // Attach synced campaigns to the brand whose Meta ad account matches
+      const cleanAccountId = adAccountId.replace(/^act_/, '');
+      const owner = await prisma.client.findFirst({
+        where: { metaAccountId: { in: [cleanAccountId, `act_${cleanAccountId}`] } },
+        select: { id: true }
+      });
       
       // Save or update campaigns in Prisma
       let savedCount = 0;
       for (const mc of metaCampaigns) {
-        const dailyBudget = mc.daily_budget ? parseFloat(mc.daily_budget) / 100 : 1000;
+        // Missing metrics stay 0 instead of being filled with made-up values
+        const dailyBudget = mc.daily_budget ? parseFloat(mc.daily_budget) / 100 : 0;
         const insights = mc.insights?.data?.[0] || {};
         const spent = insights.spend ? parseFloat(insights.spend) : 0;
-        const roas = insights.purchase_roas?.[0]?.value ? parseFloat(insights.purchase_roas[0].value) : 4.0;
-        const ctr = insights.ctr ? parseFloat(insights.ctr) : 2.5;
-        const cpc = insights.cpc ? parseFloat(insights.cpc) : 3.0;
+        const roas = insights.purchase_roas?.[0]?.value ? parseFloat(insights.purchase_roas[0].value) : 0;
+        const ctr = insights.ctr ? parseFloat(insights.ctr) : 0;
+        const cpc = insights.cpc ? parseFloat(insights.cpc) : 0;
+        const revenue = Math.round(spent * roas * 100) / 100;
 
         await prisma.campaign.upsert({
           where: { id: `meta-${mc.id}` },
@@ -59,9 +63,11 @@ export async function POST(request: Request) {
             status: mc.status === 'ACTIVE' ? 'active' : 'paused',
             dailyBudget,
             spent,
+            revenue,
             roas,
             ctr,
-            cpc
+            cpc,
+            ...(owner && { clientId: owner.id })
           },
           create: {
             id: `meta-${mc.id}`,
@@ -70,11 +76,13 @@ export async function POST(request: Request) {
             status: mc.status === 'ACTIVE' ? 'active' : 'paused',
             dailyBudget,
             spent,
+            revenue,
             roas,
             ctr,
             cpc,
-            fatigueScore: 20,
-            targetMarketplaceStock: 100
+            fatigueScore: 0,
+            targetMarketplaceStock: 100,
+            ...(owner && { clientId: owner.id })
           }
         });
         savedCount++;
@@ -93,9 +101,7 @@ export async function POST(request: Request) {
     }
 
     if (cleanProvider === 'trendyol') {
-      const supplierId = credentials.supplierId || credentials['Satıcı ID (Supplier ID)'];
-      const apiKey = credentials.apiKey || credentials['API Key'];
-      const apiSecret = credentials.apiSecret || credentials['API Secret'];
+      const { supplierId, apiKey, apiSecret } = trendyolCredentials(credentials);
 
       if (!supplierId || !apiKey || !apiSecret) {
         return NextResponse.json({ success: false, error: 'Trendyol Satıcı ID, API Key veya Secret eksik.' }, { status: 400 });
@@ -105,15 +111,14 @@ export async function POST(request: Request) {
 
       let savedCount = 0;
       for (const p of tyProducts) {
-        const sku = p.barcode || p.stockCode || `TY-${p.id}`;
-        const name = p.title || 'Trendyol Ürünü';
-        const price = p.salePrice || p.listPrice || 1000;
-        const stock = p.quantity ?? 10;
+        const sku = p.barcode;
+        const name = p.stockCode || p.productMainId || `Trendyol Ürünü (${p.barcode})`;
+        const price = Number(p.salePrice || p.listPrice) || 0;
+        const stock = Number(p.quantity) || 0;
 
         await prisma.product.upsert({
           where: { sku },
           update: {
-            name,
             price,
             stock,
             buyboxPrice: price,
@@ -146,9 +151,7 @@ export async function POST(request: Request) {
     }
 
     if (cleanProvider === 'hepsiburada') {
-      const merchantId = credentials.merchantId || credentials['Merchant ID'] || credentials['Mağaza ID'];
-      const secretKey = credentials.secretKey || credentials['Entegratör Gizli Anahtarı'] || credentials['Secret Key'] || credentials['API Şifresi'];
-      const serviceUsername = credentials.serviceUsername || credentials['API Kullanıcı Adı (Username)'];
+      const { merchantId, secretKey, serviceUsername } = hepsiburadaCredentials(credentials);
 
       if (!merchantId || !secretKey) {
         return NextResponse.json({ success: false, error: 'Hepsiburada Merchant ID veya Gizli Anahtarı eksik.' }, { status: 400 });
@@ -166,8 +169,10 @@ export async function POST(request: Request) {
 
       let savedCount = 0;
       for (const item of hbListings) {
-        const sku = item.hepsiburadaSku || item.merchantSku || item.listingId || `HB-${savedCount}`;
-        const name = item.merchantSku || item.hepsiburadaSku || `Hepsiburada Ürünü (${sku})`;
+        // Skip listings without a stable identifier; a counter-based key would overwrite other products
+        const sku = item.hepsiburadaSku || item.merchantSku || item.listingId;
+        if (!sku) continue;
+        const name = item.productName || item.merchantSku || item.hepsiburadaSku || `Hepsiburada Ürünü (${sku})`;
         const price = Number(item.price) || 500;
         const stock = Number(item.availableStock) || 0;
         const isSalable = item.isSalable !== undefined ? Boolean(item.isSalable) : true;
@@ -209,9 +214,9 @@ export async function POST(request: Request) {
     }
 
     return NextResponse.json({
-      success: true,
-      message: `${provider} için canlı veri eşitlemesi tamamlandı.`
-    });
+      success: false,
+      error: `${provider} için veri eşitleme henüz desteklenmiyor.`
+    }, { status: 400 });
   } catch (err: any) {
     console.error('Integration sync error:', err);
     return NextResponse.json({ success: false, error: err.message }, { status: 500 });

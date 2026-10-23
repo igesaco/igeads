@@ -1,7 +1,26 @@
 /**
  * Trendyol Marketplace Integration Service
- * Uses Trendyol Supplier API (SAPIGW)
+ * Uses the Trendyol integration gateway (apigw.trendyol.com/integration). The old sapigw paths and the
+ * V1 product filter are retired; products are read through the V2 approved inventory-and-price service.
+ * Docs: https://developers.trendyol.com/v3.0/docs/product-filtering-approved-products-stock-and-price
  */
+
+const TRENDYOL_BASE = process.env.TRENDYOL_API_BASE || 'https://apigw.trendyol.com/integration';
+const STOREFRONT_CODE = process.env.TRENDYOL_STOREFRONT_CODE || 'TR';
+
+function trendyolHeaders(supplierId: string, apiKey: string, apiSecret: string): Record<string, string> {
+  return {
+    'Authorization': `Basic ${Buffer.from(`${apiKey.trim()}:${apiSecret.trim()}`).toString('base64')}`,
+    // Trendyol blocks requests without "<sellerId> - SelfIntegration" style User-Agent (403)
+    'User-Agent': `${supplierId} - SelfIntegration`,
+    'storeFrontCode': STOREFRONT_CODE,
+    'Content-Type': 'application/json'
+  };
+}
+
+function inventoryUrl(supplierId: string, size: number) {
+  return `${TRENDYOL_BASE}/product/sellers/${supplierId}/products/approved/inventory-and-price?page=0&size=${size}`;
+}
 
 export interface TrendyolCredentials {
   supplierId: string;
@@ -30,17 +49,11 @@ export async function testTrendyolConnection(credentials: TrendyolCredentials): 
   }
 
   const cleanSupplierId = supplierId.trim();
-  const authHeader = `Basic ${Buffer.from(`${apiKey.trim()}:${apiSecret.trim()}`).toString('base64')}`;
-  const url = `https://api.trendyol.com/sapigw/suppliers/${cleanSupplierId}/products?size=1`;
 
   try {
-    const res = await fetch(url, {
+    const res = await fetch(inventoryUrl(cleanSupplierId, 1), {
       method: 'GET',
-      headers: {
-        'Authorization': authHeader,
-        'User-Agent': `${cleanSupplierId} - IgeAdsIntegration`,
-        'Content-Type': 'application/json'
-      }
+      headers: trendyolHeaders(cleanSupplierId, apiKey, apiSecret)
     });
 
     const pingMs = Date.now() - start;
@@ -78,26 +91,38 @@ export async function testTrendyolConnection(credentials: TrendyolCredentials): 
   }
 }
 
-export async function fetchTrendyolProducts(credentials: TrendyolCredentials) {
+export interface TrendyolVariant {
+  barcode: string;
+  stockCode?: string;
+  productMainId?: string;
+  salePrice?: number;
+  listPrice?: number;
+  quantity?: number;
+}
+
+/** Returns one row per variant (barcode); the V2 service has no product title */
+export async function fetchTrendyolProducts(credentials: TrendyolCredentials): Promise<TrendyolVariant[]> {
   const { supplierId, apiKey, apiSecret } = credentials;
   const cleanSupplierId = supplierId.trim();
-  const authHeader = `Basic ${Buffer.from(`${apiKey.trim()}:${apiSecret.trim()}`).toString('base64')}`;
-  const url = `https://api.trendyol.com/sapigw/suppliers/${cleanSupplierId}/products?size=50`;
 
-  const res = await fetch(url, {
+  const res = await fetch(inventoryUrl(cleanSupplierId, 100), {
     method: 'GET',
-    headers: {
-      'Authorization': authHeader,
-      'User-Agent': `${cleanSupplierId} - IgeAdsIntegration`
-    }
+    headers: trendyolHeaders(cleanSupplierId, apiKey, apiSecret)
   });
 
   if (!res.ok) {
-    throw new Error(`Trendyol ürün listesi alınamadı (${res.status})`);
+    const errorText = await res.text();
+    throw new Error(`Trendyol ürün listesi alınamadı (${res.status}): ${errorText.slice(0, 150)}`);
   }
 
   const data = await res.json();
-  return data.content || [];
+  const variants: TrendyolVariant[] = [];
+  for (const product of data.content || []) {
+    for (const v of product.variants || []) {
+      if (v.barcode) variants.push({ ...v, productMainId: product.productMainId });
+    }
+  }
+  return variants;
 }
 
 export async function updateTrendyolPrice(
@@ -106,8 +131,7 @@ export async function updateTrendyolPrice(
 ) {
   const { supplierId, apiKey, apiSecret } = credentials;
   const cleanSupplierId = supplierId.trim();
-  const authHeader = `Basic ${Buffer.from(`${apiKey.trim()}:${apiSecret.trim()}`).toString('base64')}`;
-  const url = `https://api.trendyol.com/sapigw/suppliers/${cleanSupplierId}/products/price-and-inventory`;
+  const url = `${TRENDYOL_BASE}/inventory/sellers/${cleanSupplierId}/products/price-and-inventory`;
 
   const payload = {
     items: items.map(item => ({
@@ -120,11 +144,7 @@ export async function updateTrendyolPrice(
 
   const res = await fetch(url, {
     method: 'POST',
-    headers: {
-      'Authorization': authHeader,
-      'User-Agent': `${cleanSupplierId} - IgeAdsIntegration`,
-      'Content-Type': 'application/json'
-    },
+    headers: trendyolHeaders(cleanSupplierId, apiKey, apiSecret),
     body: JSON.stringify(payload)
   });
 

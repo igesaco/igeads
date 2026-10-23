@@ -1,71 +1,70 @@
 import { NextResponse } from 'next/server';
+import { prisma } from '@/lib/prisma';
 import { testMetaConnection } from '@/lib/integrations/meta';
 import { testTrendyolConnection } from '@/lib/integrations/trendyol';
 import { testGoogleAdsConnection } from '@/lib/integrations/google';
 import { testWhatsAppConnection } from '@/lib/integrations/whatsapp';
 import { testHepsiburadaConnection } from '@/lib/integrations/hepsiburada';
+import {
+  googleCredentials,
+  hepsiburadaCredentials,
+  mergeCredentials,
+  metaCredentials,
+  parseStoredCredentials,
+  trendyolCredentials,
+  whatsappCredentials
+} from '@/lib/integrations/credentials';
 
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { provider, credentials } = body;
+    const { provider } = body;
 
     if (!provider) {
       return NextResponse.json({ success: false, error: 'Sağlayıcı (provider) belirtilmedi' }, { status: 400 });
     }
 
-    let testResult: any = { success: false, error: 'Bilinmeyen sağlayıcı' };
+    const providerKey = String(provider).replace(/^int-/, '').toLowerCase();
 
-    switch (provider.toLowerCase()) {
+    // Secrets are masked in the browser, so fill empty fields from the stored config
+    const stored = await prisma.integrationConfig.findUnique({ where: { provider: providerKey } });
+    const credentials = mergeCredentials(parseStoredCredentials(stored?.credentials), body.credentials);
+
+    let testResult: any;
+
+    switch (providerKey) {
       case 'hepsiburada':
-      case 'int-hepsiburada':
-        testResult = await testHepsiburadaConnection({
-          merchantId: credentials?.merchantId || credentials?.['Merchant ID'] || credentials?.['Mağaza ID'] || credentials?.id || '',
-          secretKey: credentials?.secretKey || credentials?.['Entegratör Gizli Anahtarı'] || credentials?.['Secret Key'] || credentials?.['API Şifresi'] || credentials?.password || '',
-          serviceUsername: credentials?.serviceUsername || credentials?.['API Kullanıcı Adı (Username)'] || credentials?.username || ''
-        });
+        testResult = await testHepsiburadaConnection(hepsiburadaCredentials(credentials));
         break;
       case 'meta':
-      case 'int-meta':
-        testResult = await testMetaConnection({
-          accessToken: credentials?.accessToken || credentials?.['Sistem Kullanıcısı Token (EAA...)'] || credentials?.token || credentials?.value || '',
-          adAccountId: credentials?.adAccountId || credentials?.['Reklam Hesabı ID (act_...)'] || credentials?.accountId || ''
-        });
+        testResult = await testMetaConnection(metaCredentials(credentials));
         break;
-
       case 'trendyol':
-      case 'int-trendyol':
-        testResult = await testTrendyolConnection({
-          supplierId: credentials?.supplierId || credentials?.['Satıcı ID (SupplierId)'] || credentials?.sellerId || '',
-          apiKey: credentials?.apiKey || credentials?.['API Anahtarı'] || '',
-          apiSecret: credentials?.apiSecret || credentials?.['API Gizli Anahtarı (Secret)'] || ''
-        });
+        testResult = await testTrendyolConnection(trendyolCredentials(credentials));
         break;
-
       case 'google':
-      case 'int-google':
-        testResult = await testGoogleAdsConnection({
-          customerId: credentials?.customerId || credentials?.['Google Ads Müşteri ID'] || '',
-          refreshToken: credentials?.refreshToken || credentials?.['Geliştirici Jetonu (Developer Token)'] || ''
-        });
+        testResult = await testGoogleAdsConnection(googleCredentials(credentials));
         break;
-
       case 'whatsapp':
-      case 'int-whatsapp':
-        testResult = await testWhatsAppConnection({
-          phoneNumberId: credentials?.phoneNumberId || credentials?.['WhatsApp Phone Number ID'] || '',
-          systemUserToken: credentials?.systemUserToken || credentials?.['Meta System User Token'] || credentials?.token || ''
-        });
+        testResult = await testWhatsAppConnection(whatsappCredentials(credentials));
         break;
-
       default:
-        // Generic successful ping test for other partners
-        await new Promise(r => setTimeout(r, 450));
         testResult = {
-          success: true,
-          pingMs: 45,
-          message: `${provider} servisine güvenli TLS 1.3 soket bağlantısı kuruldu (200 OK).`
+          success: false,
+          pingMs: 0,
+          error: `${provider} için canlı bağlantı testi henüz desteklenmiyor. Bilgiler kaydedilebilir ancak veri çekilmez.`
         };
+    }
+
+    if (stored) {
+      await prisma.integrationConfig.update({
+        where: { provider: providerKey },
+        data: {
+          connected: Boolean(testResult.success),
+          status: testResult.success ? 'active' : 'error',
+          ...(testResult.accountName && { accountName: testResult.accountName })
+        }
+      });
     }
 
     return NextResponse.json(testResult);

@@ -33,15 +33,27 @@ export default function ClientPortalPage({ params }: { params: Promise<{ client:
   const [revisionTaskId, setRevisionTaskId] = useState<string | null>(null);
   const [revisionNote, setRevisionNote] = useState('');
   const [actionSuccessMsg, setActionSuccessMsg] = useState<string | null>(null);
+  const [accessDenied, setAccessDenied] = useState(false);
+
+  // Portal links carry a per-brand access key (?key=...); agency users are authorized by their session cookie
+  const portalHeaders = (): Record<string, string> => {
+    const key = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('key') : null;
+    return key ? { 'x-portal-client': clientSlug, 'x-portal-key': key } : {};
+  };
 
   useEffect(() => {
     async function loadData() {
       try {
         setLoading(true);
         const [clientRes, tasksRes] = await Promise.all([
-          fetch(`/api/clients/${clientSlug}`),
-          fetch(`/api/tasks?clientSlug=${clientSlug}`)
+          fetch(`/api/clients/${clientSlug}`, { headers: portalHeaders() }),
+          fetch(`/api/tasks?clientSlug=${clientSlug}`, { headers: portalHeaders() })
         ]);
+
+        if (clientRes.status === 401) {
+          setAccessDenied(true);
+          return;
+        }
 
         const clientJson = await clientRes.json();
         if (clientJson.success && clientJson.data) {
@@ -65,7 +77,7 @@ export default function ClientPortalPage({ params }: { params: Promise<{ client:
     try {
       const res = await fetch('/api/tasks', {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...portalHeaders() },
         body: JSON.stringify({ id: taskId, stage: 'published' })
       });
       const json = await res.json();
@@ -86,7 +98,7 @@ export default function ClientPortalPage({ params }: { params: Promise<{ client:
       const newDesc = `${currentTask?.description || ''}\n[Müşteri Revize Notu]: ${revisionNote}`.trim();
       const res = await fetch('/api/tasks', {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...portalHeaders() },
         body: JSON.stringify({ 
           id: taskId, 
           stage: 'in_progress',
@@ -118,6 +130,18 @@ export default function ClientPortalPage({ params }: { params: Promise<{ client:
 
   const pendingApprovals = tasks.filter(t => t.stage === 'review' || t.stage === 'ready_to_publish');
   const activeCreatives = tasks.filter(t => t.stage === 'published' || t.stage === 'in_progress');
+
+  if (accessDenied) {
+    return (
+      <div className="min-h-screen bg-[#080B11] text-slate-100 flex items-center justify-center p-6">
+        <div className="max-w-sm text-center space-y-3">
+          <ShieldCheck className="w-10 h-10 text-indigo-400 mx-auto" />
+          <h1 className="text-lg font-black text-white">Bu portala erişim anahtarı gerekiyor</h1>
+          <p className="text-xs text-slate-400">Lütfen ajansınızın size gönderdiği tam portal linkini kullanın.</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#080B11] text-slate-100 selection:bg-cyan-600 selection:text-white print:bg-white print:text-black">

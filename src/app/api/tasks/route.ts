@@ -72,6 +72,18 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: 'Görev ID zorunludur' }, { status: 400 });
     }
 
+    // Portal visitors (set by middleware) may only approve or request a revision on their own brand's tasks
+    const portalClient = request.headers.get('x-portal-verified-client');
+    if (portalClient) {
+      const task = await prisma.agencyTask.findUnique({ where: { id }, select: { clientSlug: true } });
+      if (!task || task.clientSlug !== portalClient) {
+        return NextResponse.json({ error: 'Görev bulunamadı' }, { status: 404 });
+      }
+      if (!['published', 'in_progress'].includes(stage) || assignedTo !== undefined || priority !== undefined) {
+        return NextResponse.json({ error: 'Bu işlem için yetkiniz yok' }, { status: 403 });
+      }
+    }
+
     const updated = await prisma.agencyTask.update({
       where: { id },
       data: {
