@@ -1,7 +1,8 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { SESSION_COOKIE, verifyPortalKey, verifySessionToken } from '@/lib/auth';
 
-const PUBLIC_API = ['/api/auth/login', '/api/auth/logout', '/api/auth/me', '/api/auth/register'];
+// The iyzico callback is called by iyzico's servers; it verifies the payment with iyzico itself
+const PUBLIC_API = ['/api/auth/login', '/api/auth/logout', '/api/auth/me', '/api/auth/register', '/api/subscription/callback'];
 const PORTAL_CLIENT_HEADER = 'x-portal-verified-client';
 const PORTAL_ORG_HEADER = 'x-portal-verified-org';
 

@@ -126,6 +126,21 @@ async function tenantTests(results) {
   const portalForged = await request('/api/clients/mandalinclean', { headers: { 'x-portal-client': 'mandalinclean', 'x-portal-key': forged } }, { anonymous: true });
   check('Portal anahtarı başka hesaba taşınamaz', portalForged, portalForged.status === 401);
 
+  const sub = await request('/api/subscription', {}, { cookie: cookieB });
+  check('Abonelik bilgisi', sub, sub.ok && sub.data?.data?.organization?.planStatus === 'trialing' && sub.data.data.plans.length === 3);
+
+  const badPlan = await request('/api/subscription/checkout', { method: 'POST', headers: json, body: JSON.stringify({ plan: 'bedava' }) }, { cookie: cookieB });
+  check('Geçersiz paket reddedilir', badPlan, badPlan.status === 400);
+
+  const memberPay = await request('/api/subscription/checkout', { method: 'POST', headers: json, body: JSON.stringify({ plan: 'growth' }) }, { cookie: memberLogin.setCookie });
+  check('Ekip üyesi ödeme başlatamaz', memberPay, memberPay.status === 403);
+
+  const fakeCallback = await request('/api/subscription/callback', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: 'token=sahte', redirect: 'manual' }, { anonymous: true });
+  check('Sahte ödeme bildirimi paketi açmaz', fakeCallback, fakeCallback.status === 303);
+
+  const legal = await request('/yasal/mesafeli-satis', {}, { anonymous: true });
+  check('Yasal sayfa açılıyor', legal, legal.ok);
+
   const notif = await request('/api/notifications', {}, { cookie: cookieB });
   check('Bildirimler hesaba özel', notif, notif.ok && notif.data?.data?.length === 0);
 }
