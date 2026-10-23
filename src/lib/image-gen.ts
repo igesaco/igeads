@@ -158,6 +158,40 @@ export function buildBasePrompt(rawPrompt: string, style: string = 'studio', sec
   return `${subjectDesc}, ${styleModifier}, photorealistic, high definition 8k`;
 }
 
+async function fetchSemanticImageForPrompt(prompt: string, geminiClient: any): Promise<string | null> {
+  if (!geminiClient) return null;
+  try {
+    const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 3000));
+    const aiPromise = geminiClient.models.generateContent({
+      model: 'gemini-3.1-flash-lite',
+      contents: `You are an image subject extractor. Extract the single most iconic English Wikipedia article subject title representing what visual needs to be shown for this user request (e.g. "Monkey", "Chimpanzee", "Sports car", "Rolex", "Sneakers", "Cleaning", "Coffee", "Cat", "Dog", etc.).
+Rules:
+- Output ONLY the single entity name in English, max 2 words.
+- NO punctuation, NO quotes.
+User request: "${prompt}"`
+    });
+    const res: any = await Promise.race([aiPromise, timeoutPromise]);
+    const entity = (res?.text || '').trim().replace(/["\.\n\r]/g, '');
+    if (!entity || entity.length < 2) return null;
+
+    const controller = new AbortController();
+    const wikiTimeout = setTimeout(() => controller.abort(), 3500);
+    const wikiRes = await fetch('https://en.wikipedia.org/api/rest_v1/page/summary/' + encodeURIComponent(entity), {
+      signal: controller.signal,
+      headers: { 'User-Agent': 'IgeAds/1.0 (contact@igeads.com)' }
+    });
+    clearTimeout(wikiTimeout);
+
+    if (wikiRes.ok) {
+      const data = await wikiRes.json();
+      return data.originalimage?.source || data.thumbnail?.source || null;
+    }
+  } catch (err) {
+    console.warn('Semantic image search warning:', err);
+  }
+  return null;
+}
+
 export async function generateAiImage(options: ImageGenerationOptions): Promise<ImageGenerationResult> {
   const {
     prompt = '',
@@ -257,8 +291,21 @@ Rules:
     enhancedPrompt = buildBasePrompt(rawInput, style, clientName);
   }
 
-  // 3. Select authentic, 100% reliable 4K commercial advertising photo
-  const selectedCdnUrl = selectSmartCommercialImage(rawInput, style);
+  // 3. Try Gemini semantic image matching for custom user subjects (e.g. monkey, sports car, watch)
+  let selectedCdnUrl = '';
+  const isCustomTopic = !rawInput.toLowerCase().includes('koltuk') && 
+                        !rawInput.toLowerCase().includes('mandalin') && 
+                        !rawInput.toLowerCase().includes('velvet') &&
+                        !rawInput.toLowerCase().includes('ceket');
+
+  if (isCustomTopic && geminiClient) {
+    selectedCdnUrl = (await fetchSemanticImageForPrompt(rawInput, geminiClient)) || '';
+  }
+
+  // If not found or matches known client categories, fallback to curated commercial photo vault
+  if (!selectedCdnUrl) {
+    selectedCdnUrl = selectSmartCommercialImage(rawInput, style);
+  }
 
   // 4. Fetch image buffer and convert to CORS-safe Base64 Data URL
   // This guarantees 100% offline reliability, instant local display, zero external redirects, zero paywalls!
