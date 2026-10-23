@@ -40,6 +40,54 @@ export default function Navbar({
 }: NavbarProps) {
   const [unreadCount, setUnreadCount] = React.useState(0);
 
+  const [syncInfo, setSyncInfo] = React.useState<{ connected: string[]; lastSyncAt: string | null }>({ connected: [], lastSyncAt: null });
+  const [syncing, setSyncing] = React.useState(false);
+  const [syncMessage, setSyncMessage] = React.useState<string | null>(null);
+
+  const loadSyncInfo = React.useCallback(() => {
+    fetch('/api/integrations')
+      .then(r => r.json())
+      .then(json => {
+        if (!json.success || !Array.isArray(json.data)) return;
+        const connected = json.data.filter((i: any) => i.connected);
+        const times = connected.map((i: any) => i.lastSyncAt).filter(Boolean).sort();
+        setSyncInfo({ connected: connected.map((i: any) => String(i.id).replace(/^int-/, '')), lastSyncAt: times[times.length - 1] || null });
+      })
+      .catch(() => {});
+  }, []);
+
+  React.useEffect(() => { loadSyncInfo(); }, [loadSyncInfo, activeTab]);
+
+  const SYNCABLE = ['meta', 'trendyol', 'hepsiburada'];
+  const handleSyncAll = async () => {
+    const providers = syncInfo.connected.filter(p => SYNCABLE.includes(p));
+    if (!providers.length) {
+      setSyncMessage('Eşitlenecek bağlı entegrasyon yok');
+      setTimeout(() => setSyncMessage(null), 4000);
+      return;
+    }
+    setSyncing(true);
+    const failed: string[] = [];
+    for (const provider of providers) {
+      try {
+        const res = await fetch('/api/integrations/sync', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ provider })
+        });
+        const json = await res.json();
+        if (!json.success) failed.push(provider);
+      } catch {
+        failed.push(provider);
+      }
+    }
+    setSyncing(false);
+    setSyncMessage(failed.length ? `Eşitlenemedi: ${failed.join(', ')}` : 'Tüm veriler eşitlendi');
+    setTimeout(() => setSyncMessage(null), 5000);
+    loadSyncInfo();
+    window.dispatchEvent(new CustomEvent('product_updated'));
+  };
+
   React.useEffect(() => {
     const load = () => fetch('/api/notifications')
       .then(r => r.json())
@@ -52,7 +100,7 @@ export default function Navbar({
 
   const getTabTitle = () => {
     switch (activeTab) {
-      case 'dashboard': return 'Genel Büyüme & POAS Paneli';
+      case 'dashboard': return 'Genel Bakış';
       case 'war_room': return 'Canlı Satış & War Room';
       case 'ads': return 'Bütünleşik Reklam Yönetimi & Otonom Bütçe';
       case 'creative_studio': return 'AI Reklam Tasarım & Mockup Stüdyosu';
@@ -90,9 +138,11 @@ export default function Navbar({
             <span className="text-xs text-slate-600">/</span>
             <span className="text-sm font-bold text-white tracking-wide">{getTabTitle()}</span>
           </div>
-          <span className="text-[11px] text-emerald-400 font-medium flex items-center gap-1.5">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-            Tüm API Senkronizasyonları Aktif (Son Veri: 2 dk önce)
+          <span className={`text-[11px] font-medium flex items-center gap-1.5 ${syncInfo.connected.length ? 'text-emerald-400' : 'text-slate-500'}`}>
+            <span className={`w-1.5 h-1.5 rounded-full ${syncInfo.connected.length ? 'bg-emerald-400' : 'bg-slate-600'}`}></span>
+            {syncMessage || (syncInfo.connected.length
+              ? `${syncInfo.connected.length} entegrasyon bağlı · Son eşitleme: ${syncInfo.lastSyncAt ? new Date(syncInfo.lastSyncAt).toLocaleString('tr-TR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : 'henüz yok'}`
+              : 'Henüz bağlı entegrasyon yok')}
           </span>
         </div>
       </div>
@@ -101,11 +151,13 @@ export default function Navbar({
       <div className="flex items-center gap-3.5">
         {/* Quick Sync Button */}
         <button 
-          title="Tüm Pazaryeri ve Reklam Verilerini Canlı Eşle"
+          onClick={handleSyncAll}
+          disabled={syncing}
+          title="Bağlı pazaryeri ve reklam hesaplarından verileri şimdi çek"
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#141b2b] border border-[#212b42] text-xs text-slate-300 hover:text-white hover:border-slate-500 transition-all cursor-pointer"
         >
-          <RefreshCw className="w-3.5 h-3.5 text-indigo-400" />
-          <span className="hidden sm:inline">Canlı Eşitle</span>
+          <RefreshCw className={`w-3.5 h-3.5 text-indigo-400 ${syncing ? 'animate-spin' : ''}`} />
+          <span className="hidden sm:inline">{syncing ? 'Eşitleniyor...' : 'Canlı Eşitle'}</span>
         </button>
 
         {/* Export Report Button */}
@@ -125,8 +177,7 @@ export default function Navbar({
           className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gradient-to-r from-indigo-600/30 to-purple-600/30 border border-indigo-500/40 text-xs font-semibold text-indigo-200 hover:text-white transition-all shadow-sm hover:shadow-indigo-500/20 cursor-pointer"
         >
           <Sparkles className="w-3.5 h-3.5 text-indigo-400 animate-pulse" />
-          <span>Ghost AI Brifingi</span>
-          <span className="px-1.5 py-0.2 rounded bg-indigo-500 text-[10px] text-white font-extrabold">3</span>
+          <span>Günlük Özet</span>
         </button>
 
         {/* Create Campaign */}

@@ -28,6 +28,7 @@ export async function GET(request: Request) {
           connected: found.connected,
           accountName: found.accountName || base.accountName,
           lastSync: found.lastSync ? new Date(found.lastSync).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : base.lastSync,
+          lastSyncAt: found.lastSync ? new Date(found.lastSync).toISOString() : null,
           badgeColor: found.connected 
             ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30' 
             : 'bg-slate-800 text-slate-400 border-slate-700',

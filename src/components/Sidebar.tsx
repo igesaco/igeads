@@ -64,9 +64,9 @@ export default function Sidebar({
       id: 'core',
       title: 'Genel Bakış & Komuta',
       items: [
-        { id: 'dashboard', label: 'Genel Bakış (Executive)', icon: LayoutDashboard, badge: 'Canlı' },
-        { id: 'war_room', label: 'Canlı Satış & War Room', icon: Radio, badge: 'LIVE' },
-        { id: 'social_pulse', label: 'Canlı Platform Nabzı', icon: Activity, badge: 'CANLI' },
+        { id: 'dashboard', label: 'Genel Bakış', icon: LayoutDashboard },
+        { id: 'war_room', label: 'Canlı Satış & War Room', icon: Radio, badge: 'YAKINDA' },
+        { id: 'social_pulse', label: 'Canlı Platform Nabzı', icon: Activity, badge: 'YAKINDA' },
       ]
     },
     {
@@ -74,9 +74,9 @@ export default function Sidebar({
       title: 'Reklam & Medya Satın Alma',
       items: [
         { id: 'ads', label: 'Reklam Hub\'ı', icon: Megaphone },
-        { id: 'autonomous_buyer', label: 'Otonom Medya Alıcı (AI)', icon: Cpu, badge: '1-CLICK' },
-        { id: 'automations', label: 'Otonom Kural Motoru', icon: Sliders, badge: 'AUTO' },
-        { id: 'attribution', label: 'Çok Kanallı Atıf & LTV', icon: GitMerge, badge: 'ANALİTİK' },
+        { id: 'autonomous_buyer', label: 'Otonom Medya Alıcı (AI)', icon: Cpu, badge: 'YAKINDA' },
+        { id: 'automations', label: 'Otomasyon Kuralları', icon: Sliders },
+        { id: 'attribution', label: 'Çok Kanallı Atıf & LTV', icon: GitMerge, badge: 'YAKINDA' },
       ]
     },
     {
@@ -84,18 +84,18 @@ export default function Sidebar({
       title: 'Sosyal Medya & Kreatif AI',
       items: [
         { id: 'creative_studio', label: 'AI Tasarım & Mockup', icon: Palette, badge: '4K' },
-        { id: 'video_vision', label: 'Rakip Video Röntgeni', icon: Video, badge: 'AI VISION' },
+        { id: 'video_vision', label: 'Rakip Video Analizi', icon: Video, badge: 'AI' },
         { id: 'intelligence', label: 'AI İçerik & Rakip Radarı', icon: Sparkles, badge: 'YENİ' },
-        { id: 'influencer', label: 'Influencer & UGC ROI', icon: Users },
+        { id: 'influencer', label: 'Influencer & UGC ROI', icon: Users, badge: 'YAKINDA' },
       ]
     },
     {
       id: 'marketing',
       title: 'Pazarlama & İletişim',
       items: [
-        { id: 'whatsapp_commerce', label: 'WhatsApp Satış Masası', icon: MessageSquare, badge: 'CANLI' },
-        { id: 'remarketing', label: 'Remarketing (WhatsApp/SMS)', icon: MessageSquareShare },
-        { id: 'seogeo', label: 'SEO & GEO (AI Görünürlük)', icon: Search },
+        { id: 'whatsapp_commerce', label: 'WhatsApp Gelen Kutusu', icon: MessageSquare },
+        { id: 'remarketing', label: 'Remarketing (WhatsApp/SMS)', icon: MessageSquareShare, badge: 'YAKINDA' },
+        { id: 'seogeo', label: 'SEO & GEO (AI Görünürlük)', icon: Search, badge: 'YAKINDA' },
       ]
     },
     {
@@ -103,8 +103,8 @@ export default function Sidebar({
       title: 'E-Ticaret & Pazaryeri',
       items: [
         { id: 'marketplace', label: 'Pazaryeri & Stok', icon: Store },
-        { id: 'buybox', label: 'Buybox & Fiyat Casusu', icon: ShoppingBag },
-        { id: 'return_radar', label: 'Kargo & İade Kalkanı', icon: ShieldAlert },
+        { id: 'buybox', label: 'Buybox & Fiyat Takibi', icon: ShoppingBag },
+        { id: 'return_radar', label: 'Kargo & İade Kalkanı', icon: ShieldAlert, badge: 'YAKINDA' },
       ]
     },
     {
@@ -293,7 +293,7 @@ export default function Sidebar({
             onClick={onOpenGhostModal}
             className="w-full bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold py-2 px-3 rounded-xl flex items-center justify-center gap-1.5 transition-all shadow-md shadow-indigo-600/25 cursor-pointer"
           >
-            <span>Brifingi Dinle & Uygula</span>
+            <span>Günlük Özeti Aç</span>
             <ChevronRight className="w-3.5 h-3.5" />
           </button>
         </div>

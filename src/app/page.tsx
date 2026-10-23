@@ -4,24 +4,16 @@ import React, { useState } from 'react';
 import Sidebar from '../components/Sidebar';
 import Navbar from '../components/Navbar';
 import DashboardOverview from '../components/DashboardOverview';
-import LiveWarRoomHub from '../components/LiveWarRoomHub';
 import CreativeStudioHub from '../components/CreativeStudioHub';
 import AdsHub from '../components/AdsHub';
-import AutonomousMediaBuyer from '../components/AutonomousMediaBuyer';
 import MarketplaceHub from '../components/MarketplaceHub';
 import BuyboxRepricerHub from '../components/BuyboxRepricerHub';
-import ReturnLossRadarHub from '../components/ReturnLossRadarHub';
 import WhatsAppLiveCommerceHub from '../components/WhatsAppLiveCommerceHub';
 import AutomationRulesHub from '../components/AutomationRulesHub';
-import AttributionLtvHub from '../components/AttributionLtvHub';
-import InfluencerRoiHub from '../components/InfluencerRoiHub';
 import VideoVisionDecoder from '../components/VideoVisionDecoder';
 import IntelligenceHub from '../components/IntelligenceHub';
-import SeoGeoHub from '../components/SeoGeoHub';
-import RemarketingHub from '../components/RemarketingHub';
 import IntegrationsHub from '../components/IntegrationsHub';
 import AgencyHub from '../components/AgencyHub';
-import SocialPulseHub from '../components/SocialPulseHub';
 import PricingHub from '../components/PricingHub';
 import GhostMarketerModal from '../components/GhostMarketerModal';
 import AuthModal from '../components/AuthModal';
@@ -29,6 +21,7 @@ import ReportExportModal from '../components/ReportExportModal';
 import NotificationDrawer from '../components/NotificationDrawer';
 import CopilotWidget from '../components/CopilotWidget';
 import LandingPage from '../components/LandingPage';
+import ComingSoon, { COMING_SOON_TABS } from '../components/ComingSoon';
 import { X, Sparkles, Check, Zap } from 'lucide-react';
 
 
@@ -205,6 +198,8 @@ export default function Home() {
             </div>
           )}
 
+          {COMING_SOON_TABS.includes(activeTab) && <ComingSoon />}
+
           {activeTab === 'dashboard' && (
             <DashboardOverview 
               activeClientName={activeClient}
@@ -213,45 +208,22 @@ export default function Home() {
             />
           )}
 
-          {activeTab === 'war_room' && <LiveWarRoomHub activeClientName={activeClient} />}
-
-          {activeTab === 'social_pulse' && (
-            <SocialPulseHub 
-              activeClientName={activeClient} 
-              onOpenCampaignModal={(platform) => {
-                setCampPlatform(platform === 'instagram' ? 'meta' : platform);
-                setIsCampaignModalOpen(true);
-              }}
-            />
-          )}
 
           {activeTab === 'ads' && <AdsHub activeClientName={activeClient} />}
 
           {activeTab === 'creative_studio' && <CreativeStudioHub activeClientName={activeClient} />}
 
-          {activeTab === 'autonomous_buyer' && <AutonomousMediaBuyer activeClientName={activeClient} />}
-
           {activeTab === 'marketplace' && <MarketplaceHub />}
 
           {activeTab === 'buybox' && <BuyboxRepricerHub />}
-
-          {activeTab === 'return_radar' && <ReturnLossRadarHub />}
 
           {activeTab === 'whatsapp_commerce' && <WhatsAppLiveCommerceHub activeClientName={activeClient} />}
 
           {activeTab === 'automations' && <AutomationRulesHub activeClientName={activeClient} />}
 
-          {activeTab === 'attribution' && <AttributionLtvHub activeClientName={activeClient} />}
-
-          {activeTab === 'influencer' && <InfluencerRoiHub activeClientName={activeClient} />}
-
           {activeTab === 'video_vision' && <VideoVisionDecoder />}
 
           {activeTab === 'intelligence' && <IntelligenceHub />}
-
-          {activeTab === 'seogeo' && <SeoGeoHub activeClientName={activeClient} />}
-
-          {activeTab === 'remarketing' && <RemarketingHub activeClientName={activeClient} />}
 
           {activeTab === 'integrations' && <IntegrationsHub />}
 
@@ -301,6 +273,7 @@ export default function Home() {
       <GhostMarketerModal
         isOpen={isGhostModalOpen}
         onClose={() => setIsGhostModalOpen(false)}
+        onNavigate={setActiveTab}
       />
 
 
