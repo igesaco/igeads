@@ -21,10 +21,11 @@ interface AuthModalProps {
   currentUser?: { name: string; email: string } | null;
   onLogout?: () => void;
   canClose?: boolean;
+  initialMode?: 'login' | 'register';
 }
 
-export default function AuthModal({ isOpen, onClose, onLoginSuccess, currentUser, onLogout, canClose = true }: AuthModalProps) {
-  const [isLogin, setIsLogin] = useState(true);
+export default function AuthModal({ isOpen, onClose, onLoginSuccess, currentUser, onLogout, canClose = true, initialMode = 'login' }: AuthModalProps) {
+  const [isLogin, setIsLogin] = useState(initialMode === 'login');
   const [accountType, setAccountType] = useState<'agency' | 'business'>('business');
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');

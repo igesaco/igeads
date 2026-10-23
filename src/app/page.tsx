@@ -28,6 +28,7 @@ import AuthModal from '../components/AuthModal';
 import ReportExportModal from '../components/ReportExportModal';
 import NotificationDrawer from '../components/NotificationDrawer';
 import CopilotWidget from '../components/CopilotWidget';
+import LandingPage from '../components/LandingPage';
 import { X, Sparkles, Check, Zap } from 'lucide-react';
 
 
@@ -36,7 +37,11 @@ import { X, Sparkles, Check, Zap } from 'lucide-react';
 
 
 export default function Home() {
-  const [activeTab, setActiveTab] = useState<string>('dashboard');
+  // After the iyzico redirect (?odeme=...) open the subscription page to show the result
+  const [activeTab, setActiveTab] = useState<string>(() =>
+    typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('odeme') ? 'pricing' : 'dashboard'
+  );
+  const [authMode, setAuthMode] = useState<'login' | 'register' | null>(null);
   const [activeClient, setActiveClient] = useState<string>('');
   const [isGhostModalOpen, setIsGhostModalOpen] = useState<boolean>(false);
   const [isCampaignModalOpen, setIsCampaignModalOpen] = useState<boolean>(false);
@@ -136,16 +141,18 @@ export default function Home() {
     }, 1200);
   };
 
-  // Until signed in, only the login screen is shown
+  // Visitors see the product page; signing in or signing up opens the auth dialog
   if (!currentUser) {
     return (
       <div className="min-h-screen bg-[#080B11]">
-        {authChecked && (
+        {authChecked && <LandingPage onLogin={() => setAuthMode('login')} onRegister={() => setAuthMode('register')} />}
+        {authMode && (
           <AuthModal
+            key={authMode}
             isOpen
-            canClose={false}
-            onClose={() => {}}
-            onLoginSuccess={handleUserLogin}
+            initialMode={authMode}
+            onClose={() => setAuthMode(null)}
+            onLoginSuccess={(user) => { setAuthMode(null); handleUserLogin(user); }}
           />
         )}
       </div>

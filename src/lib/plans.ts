@@ -10,12 +10,44 @@ export interface PlanDefinition {
   annualMonthlyPrice: number; // yıllık ödemede aylık karşılığı
   maxClients: number | null; // null = sınırsız
   maxUsers: number | null;
+  description: string;
+  features: string[];
 }
 
 export const PLANS: Record<PlanId, PlanDefinition> = {
-  starter: { id: 'starter', name: 'Starter KOBİ', monthlyPrice: 1490, annualMonthlyPrice: 1190, maxClients: 1, maxUsers: 2 },
-  growth: { id: 'growth', name: 'Growth Pro', monthlyPrice: 3990, annualMonthlyPrice: 3190, maxClients: 5, maxUsers: 5 },
-  agency: { id: 'agency', name: 'Agency Scale & White-Label', monthlyPrice: 8990, annualMonthlyPrice: 7190, maxClients: null, maxUsers: null }
+  starter: {
+    id: 'starter', name: 'Starter KOBİ', monthlyPrice: 1490, annualMonthlyPrice: 1190, maxClients: 1, maxUsers: 2,
+    description: 'Tek markası olan e-ticaret işletmeleri için.',
+    features: [
+      '1 marka, 2 kullanıcı',
+      'Meta Ads, Trendyol ve Hepsiburada bağlantısı',
+      'Kampanya, ürün ve stok takibi',
+      'AI reklam metni, kanca ve ürün görseli üretimi',
+      'E-posta desteği'
+    ]
+  },
+  growth: {
+    id: 'growth', name: 'Growth Pro', monthlyPrice: 3990, annualMonthlyPrice: 3190, maxClients: 5, maxUsers: 5,
+    description: 'Birden fazla markayı veya mağazayı yöneten ekipler için.',
+    features: [
+      '5 marka, 5 kullanıcı',
+      'Starter paketindeki her şey',
+      'AI yönetici raporu ve WhatsApp özet mesajı',
+      'Rakip reklam analizi ve AI Copilot',
+      'Ekip görev panosu ve müşteri onay portalı'
+    ]
+  },
+  agency: {
+    id: 'agency', name: 'Agency Scale', monthlyPrice: 8990, annualMonthlyPrice: 7190, maxClients: null, maxUsers: null,
+    description: 'Çok sayıda müşterisi olan dijital pazarlama ajansları için.',
+    features: [
+      'Sınırsız marka ve kullanıcı',
+      'Growth Pro paketindeki her şey',
+      'Müşteri sözleşme ve hakediş takibi',
+      'Her müşteriye özel şifreli rapor portalı',
+      'Öncelikli destek'
+    ]
+  }
 };
 
 /** Deneme süresince Growth Pro sınırları geçerlidir */
