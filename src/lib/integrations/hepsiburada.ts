@@ -142,43 +142,36 @@ export async function fetchHepsiburadaProducts(
 }
 
 /**
- * Update stock and price for a Hepsiburada SKU
+ * Update price and/or stock of a listing. Hepsiburada processes these uploads asynchronously and returns an id
+ * that can be checked later in the merchant panel.
+ * Docs: https://developers.hepsiburada.com/hepsiburada/reference/fiyat-guncelleme (price-uploads / stock-uploads)
  */
 export async function updateHepsiburadaPriceAndStock(
   credentials: HepsiburadaCredentials,
   sku: string,
-  price: number,
+  price?: number,
   stock?: number
 ) {
   const { merchantId, secretKey, serviceUsername } = credentials;
   const cleanMerchantId = merchantId.trim();
-  const cleanSecretKey = secretKey.trim();
   const username = serviceUsername?.trim() || cleanMerchantId;
-
-  const authHeader = `Basic ${Buffer.from(`${username}:${cleanSecretKey}`).toString('base64')}`;
-  const url = `https://listing-external.hepsiburada.com/listings/merchantid/${cleanMerchantId}/sku/${sku}`;
-
-  const payload: any = {
-    price: Number(price)
+  const headers = {
+    'Authorization': `Basic ${Buffer.from(`${username}:${secretKey.trim()}`).toString('base64')}`,
+    'User-Agent': `${cleanMerchantId} - IgeAdsIntegration`,
+    'Content-Type': 'application/json',
+    'Accept': 'application/json'
   };
-  if (stock !== undefined) {
-    payload.availableStock = Number(stock);
-  }
+  const base = `https://listing-external.hepsiburada.com/listings/merchantid/${cleanMerchantId}`;
+  const results: any[] = [];
 
-  const res = await fetch(url, {
-    method: 'PUT',
-    headers: {
-      'Authorization': authHeader,
-      'User-Agent': `${cleanMerchantId} - IgeAdsIntegration`,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify(payload)
-  });
+  const upload = async (path: string, item: Record<string, unknown>, label: string) => {
+    const res = await fetch(`${base}/${path}`, { method: 'POST', headers, body: JSON.stringify([item]) });
+    const text = await res.text();
+    if (!res.ok) throw new Error(`Hepsiburada ${label} güncellenemedi (${res.status}): ${text.slice(0, 200)}`);
+    try { results.push(JSON.parse(text)); } catch { results.push(text); }
+  };
 
-  if (!res.ok) {
-    const errorText = await res.text();
-    throw new Error(`Hepsiburada fiyat güncelleme başarısız: ${errorText}`);
-  }
-
-  return await res.json();
+  if (price !== undefined) await upload('price-uploads', { hepsiburadaSku: sku, price: Number(price) }, 'fiyat');
+  if (stock !== undefined) await upload('stock-uploads', { hepsiburadaSku: sku, availableStock: Number(stock) }, 'stok');
+  return results;
 }

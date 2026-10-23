@@ -1,435 +1,229 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { 
-  MessageSquare, 
-  MessageCircle,
-  Send, 
-  Sparkles, 
-  ShoppingBag, 
-  CheckCheck, 
-  Phone, 
-  User, 
-  DollarSign, 
-  Zap, 
-  Tag, 
-  ExternalLink,
-  ShieldCheck,
-  Search,
-  CheckCircle2,
-  Clock,
-  ArrowUpRight
-} from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { MessageCircle, Send, CheckCheck, Check, AlertTriangle, RefreshCw, Zap, Clock } from 'lucide-react';
+
+interface ChatMessage {
+  id: string;
+  direction: 'in' | 'out';
+  text: string;
+  status: string;
+  errorMessage?: string | null;
+  createdAt: string;
+}
 
 interface ChatConversation {
   id: string;
-  customerName: string;
   phone: string;
-  status: 'abandoned_cart' | 'product_inquiry' | 'vip' | 'shipping_query';
+  customerName: string;
   lastMessage: string;
-  lastMessageTime: string;
-  unreadCount: number;
-  cartProduct?: {
-    name: string;
-    price: string;
-    size: string;
-    stock: number;
-  };
-  messages: {
-    sender: 'customer' | 'agent' | 'ai';
-    text: string;
-    time: string;
-    hasPaymentLink?: boolean;
-    paymentAmount?: string;
-  }[];
+  lastMessageAt: string;
+  canReply: boolean;
+  messages: ChatMessage[];
 }
 
 interface WhatsAppLiveCommerceHubProps {
   activeClientName?: string;
 }
 
-export default function WhatsAppLiveCommerceHub({ activeClientName = '' }: WhatsAppLiveCommerceHubProps) {
+function formatTime(iso: string) {
+  const d = new Date(iso);
+  const sameDay = d.toDateString() === new Date().toDateString();
+  return sameDay
+    ? d.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })
+    : d.toLocaleDateString('tr-TR', { day: '2-digit', month: 'short' });
+}
+
+function StatusIcon({ status }: { status: string }) {
+  if (status === 'failed') return <AlertTriangle className="w-3 h-3 text-rose-400" />;
+  if (status === 'read') return <CheckCheck className="w-3 h-3 text-cyan-400" />;
+  if (status === 'delivered') return <CheckCheck className="w-3 h-3 text-slate-400" />;
+  return <Check className="w-3 h-3 text-slate-400" />;
+}
+
+export default function WhatsAppLiveCommerceHub(_props: WhatsAppLiveCommerceHubProps) {
   const [conversations, setConversations] = useState<ChatConversation[]>([]);
-  const [selectedBrandSlug, setSelectedBrandSlug] = useState<string>('all');
-  const [availableClients, setAvailableClients] = useState<any[]>([]);
-  const [weeklyRevenue, setWeeklyRevenue] = useState(0);
+  const [connected, setConnected] = useState(false);
+  const [webhookConfigured, setWebhookConfigured] = useState(false);
+  const [loaded, setLoaded] = useState(false);
   const [activeChatId, setActiveChatId] = useState<string>('');
   const [inputText, setInputText] = useState('');
-  const [filterType, setFilterType] = useState<string>('all');
-  const [linkGenerated, setLinkGenerated] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    fetch('/api/clients')
-      .then(r => r.json())
-      .then(d => {
-        if (d.success && Array.isArray(d.data)) {
-          setAvailableClients(d.data);
-        }
-      })
-      .catch(() => {});
-  }, []);
-
-  useEffect(() => {
-    if (activeClientName) {
-      const lower = activeClientName.toLowerCase();
-      if (lower.includes('mandalin') || lower.includes('koltuk') || lower.includes('temizlik')) {
-        setSelectedBrandSlug('mandalinclean');
-      } else if (lower.includes('ige') || lower.includes('ajans') || lower.includes('roas') || lower.includes('b2b')) {
-        setSelectedBrandSlug('igesaturkiye');
-      } else if (lower.includes('velvet')) {
-        setSelectedBrandSlug('velvetcouture');
-      }
-    }
-  }, [activeClientName]);
-
-  const fetchChats = async () => {
+  const fetchChats = useCallback(async () => {
     try {
-      const query = selectedBrandSlug !== 'all' ? `?clientSlug=${selectedBrandSlug}` : '';
-      const res = await fetch(`/api/whatsapp-inbox${query}`);
+      const res = await fetch('/api/whatsapp-inbox');
       const json = await res.json();
       if (json.success && json.data) {
-        if (json.data.conversations?.length > 0) {
-          setConversations(json.data.conversations);
-          setActiveChatId(json.data.conversations[0].id);
-        }
-        if (json.data.recoveredRevenueWeekly) {
-          setWeeklyRevenue(json.data.recoveredRevenueWeekly);
-        }
+        setConversations(json.data.conversations || []);
+        setConnected(Boolean(json.data.connected));
+        setWebhookConfigured(Boolean(json.data.webhookConfigured));
+        setActiveChatId(prev => prev || json.data.conversations?.[0]?.id || '');
       }
     } catch (e) {
       console.warn('Failed to load WhatsApp inbox:', e);
+    } finally {
+      setLoaded(true);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchChats();
-  }, [selectedBrandSlug]);
+    // New messages arrive through the webhook; poll so they show up without a reload
+    const timer = setInterval(fetchChats, 15000);
+    return () => clearInterval(timer);
+  }, [fetchChats]);
 
   const activeChat = conversations.find(c => c.id === activeChatId) || conversations[0];
 
-  const handleSendMessage = () => {
-    if (!inputText.trim()) return;
-    const newMsg = {
-      sender: 'agent' as const,
-      text: inputText,
-      time: 'Şimdi'
-    };
-
-    setConversations(prev => prev.map(c => {
-      if (c && c.id === activeChat?.id) {
-        return {
-          ...c,
-          unreadCount: 0,
-          messages: [...(c.messages || []), newMsg],
-          lastMessage: inputText,
-          lastMessageTime: 'Şimdi'
-        };
+  const handleSendMessage = async () => {
+    if (!inputText.trim() || !activeChat || sending) return;
+    setSending(true);
+    setError(null);
+    try {
+      const res = await fetch('/api/whatsapp-inbox', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ to: activeChat.id, text: inputText })
+      });
+      const json = await res.json();
+      if (!json.success) {
+        setError(json.error || 'Mesaj gönderilemedi');
+        return;
       }
-      return c;
-    }));
-    setInputText('');
-  };
-
-  const handleAiAutoCloser = () => {
-    if (!activeChat) return;
-    const firstName = activeChat.customerName.split(' ')[0] || 'Müşterimiz';
-    const productName = activeChat.cartProduct?.name || 'sepetinizdeki ürün';
-    const aiSuggestion = `Merhaba ${firstName} Hanım/Bey! ${productName} hakkındaki sorunuzu aldık. Sizin için sepette geçerli özel %10 indirim tanımlayabilir ve siparişinizi hemen onaylayabiliriz. İster misiniz?`;
-    setInputText(aiSuggestion);
-  };
-
-  const handleCreateFastPaymentLink = () => {
-    if (!activeChat) return;
-    const firstName = activeChat.customerName.split(' ')[0] || 'Müşterimiz';
-    const discountedPrice = activeChat.cartProduct?.price || '₺500';
-    const label = 'Özel ödeme linki oluşturuldu';
-
-    const linkMsg = {
-      sender: 'ai' as const,
-      text: `${firstName} Hanım/Bey, adınıza özel 24 saat geçerli güvenli ödeme bağlantınız hazır: https://paytr.com/v/ige-${Date.now().toString().slice(-5)} (Tutar: ${discountedPrice})`,
-      time: 'Şimdi',
-      hasPaymentLink: true,
-      paymentAmount: discountedPrice
-    };
-
-    setConversations(prev => prev.map(c => {
-      if (c && c.id === activeChat.id) {
-        return {
-          ...c,
-          messages: [...(c.messages || []), linkMsg],
-          lastMessage: `${label} (${discountedPrice})`,
-          lastMessageTime: 'Şimdi'
-        };
-      }
-      return c;
-    }));
-    setLinkGenerated(true);
-    setTimeout(() => setLinkGenerated(false), 3000);
+      setInputText('');
+      await fetchChats();
+    } catch (err: any) {
+      setError(err.message || 'Sunucuya ulaşılamadı');
+    } finally {
+      setSending(false);
+    }
   };
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center gap-1">
+            <span className={`text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full border flex items-center gap-1 ${
+              connected ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' : 'bg-slate-800 text-slate-400 border-slate-700'
+            }`}>
               <Zap className="w-3 h-3" />
-              CANLI TİCARET & SATIŞ KAPATMA
+              {connected ? 'WhatsApp bağlı' : 'WhatsApp bağlı değil'}
             </span>
-            <span className="text-xs text-slate-400">Resmi Meta WhatsApp Cloud API</span>
+            <span className="text-xs text-slate-400">Meta WhatsApp Cloud API</span>
           </div>
-          <h2 className="text-xl font-extrabold text-white tracking-tight">WhatsApp Satış & Canlı Destek Masası</h2>
+          <h2 className="text-xl font-extrabold text-white tracking-tight">WhatsApp Gelen Kutusu</h2>
           <p className="text-xs text-slate-400 mt-0.5">
-            Terk edilen sepetleri yapay zeka ile satışa dönüştürün, itirazları cevaplayın ve sohbet içinden tek tıkla güvenli ödeme linki gönderin.
+            Müşterilerinizden gelen WhatsApp mesajlarını görün ve buradan cevaplayın.
           </p>
         </div>
-
-        {/* Brand Selector & Live Metrics */}
-        <div className="flex flex-wrap items-center gap-3">
-          <select
-            value={selectedBrandSlug}
-            onChange={(e) => setSelectedBrandSlug(e.target.value)}
-            className="bg-[#101524] border border-emerald-500/40 rounded-xl px-3 py-2.5 text-xs font-bold text-white focus:outline-none focus:border-emerald-400 cursor-pointer shadow-md"
-          >
-            <option value="all">🏢 Tüm Ajans Müşterileri</option>
-            {availableClients.map(c => (
-              <option key={c.id} value={c.slug}>🏢 {c.name} ({c.sector})</option>
-            ))}
-          </select>
-
-          <div className="flex items-center gap-3 bg-gradient-to-r from-emerald-950/40 via-[#101524] to-indigo-950/30 p-3 rounded-xl border border-emerald-500/30">
-            <div className="w-10 h-10 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
-              <DollarSign className="w-5 h-5" />
-            </div>
-            <div>
-              <div className="text-[11px] text-slate-400">WhatsApp&apos;tan Kapatılan Canlı Ciro</div>
-              <div className="text-base font-extrabold text-emerald-400">
-                ₺{weeklyRevenue.toLocaleString('tr-TR')} <span className="text-[10px] text-slate-400 font-normal">({conversations.length} Aktif Müşteri)</span>
-              </div>
-            </div>
-          </div>
-        </div>
+        <button
+          onClick={fetchChats}
+          className="px-3 py-2 rounded-xl bg-[#101524] border border-[#1f293d] text-xs font-semibold text-slate-300 hover:text-white flex items-center gap-1.5 cursor-pointer"
+        >
+          <RefreshCw className="w-3.5 h-3.5" /> Yenile
+        </button>
       </div>
 
-      {/* Main 2-Column Chat Layout */}
-      {conversations.length === 0 ? (
-        <div className="glass-panel p-16 rounded-2xl border border-dashed border-[#1f293d] text-center bg-[#0c101a]/60">
+      {loaded && conversations.length === 0 ? (
+        <div className="glass-panel p-12 rounded-2xl border border-dashed border-[#1f293d] text-center bg-[#0c101a]/60">
           <MessageCircle className="w-14 h-14 text-emerald-500/40 mx-auto mb-3" />
-          <h3 className="text-base font-bold text-white mb-2">Henüz Aktif WhatsApp Sohbeti Yok</h3>
-          <p className="text-xs text-slate-400 max-w-lg mx-auto mb-4 leading-relaxed">
-            WhatsApp Cloud API veya QR Kod entegrasyonu tamamlandığında; web sitenizden ve pazaryerlerinden gelen sepet terkleri, müşteri soruları ve otomatik satış kapatma akışları burada canlı olarak listelenecektir.
-          </p>
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-semibold">
-            <Zap className="w-3.5 h-3.5" />
-            <span>Entegrasyonlar sekmesinden WhatsApp API anahtarınızı tanımlayın</span>
+          <h3 className="text-base font-bold text-white mb-2">Henüz WhatsApp mesajı yok</h3>
+          <div className="text-xs text-slate-400 max-w-lg mx-auto leading-relaxed space-y-1 text-left">
+            <p className={connected ? 'text-emerald-400' : ''}>1. Entegrasyonlar sayfasından WhatsApp Phone Number ID ve System User Token girip bağlantıyı test edin.{connected && ' ✓'}</p>
+            <p className={webhookConfigured ? 'text-emerald-400' : ''}>
+              2. Meta uygulamanızda Webhook adresi olarak <code className="text-slate-200">{typeof window !== 'undefined' ? window.location.origin : ''}/api/whatsapp/webhook</code> girin ve &quot;messages&quot; alanına abone olun.{webhookConfigured && ' ✓'}
+            </p>
+            <p>3. Müşteriniz işletme numaranıza yazdığında sohbet burada görünür.</p>
           </div>
         </div>
-      ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 h-[640px] bg-[#0c101a] border border-[#1a2338] rounded-2xl overflow-hidden shadow-2xl">
-        
-        {/* Left: Chat List (4 cols) */}
-        <div className="lg:col-span-4 border-r border-[#1a2338] flex flex-col bg-[#0e1322]">
-          {/* Filter tabs */}
-          <div className="p-3 border-b border-[#1c263c] space-y-2">
-            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-[11px]">
-              <button 
-                onClick={() => setFilterType('all')}
-                className={`px-2.5 py-1 rounded-md font-semibold transition-all shrink-0 ${filterType === 'all' ? 'bg-indigo-600 text-white' : 'bg-[#151c2e] text-slate-400 hover:text-white'}`}
-              >
-                Tümü ({conversations.length})
-              </button>
-              <button 
-                onClick={() => setFilterType('abandoned_cart')}
-                className={`px-2.5 py-1 rounded-md font-semibold transition-all shrink-0 ${filterType === 'abandoned_cart' ? 'bg-amber-600 text-white' : 'bg-[#151c2e] text-slate-400 hover:text-white'}`}
-              >
-                Terk Edilen Sepet (1)
-              </button>
-              <button 
-                onClick={() => setFilterType('vip')}
-                className={`px-2.5 py-1 rounded-md font-semibold transition-all shrink-0 ${filterType === 'vip' ? 'bg-emerald-600 text-white' : 'bg-[#151c2e] text-slate-400 hover:text-white'}`}
-              >
-                VIP (1)
-              </button>
+      ) : activeChat && (
+        <div className="grid grid-cols-1 lg:grid-cols-12 h-[640px] bg-[#0c101a] border border-[#1a2338] rounded-2xl overflow-hidden shadow-2xl">
+          <div className="lg:col-span-4 border-r border-[#1a2338] flex flex-col bg-[#0e1322]">
+            <div className="p-3 border-b border-[#1c263c] text-[11px] font-semibold text-slate-400">
+              Sohbetler ({conversations.length})
             </div>
-          </div>
-
-          {/* Conversations list */}
-          <div className="flex-1 overflow-y-auto divide-y divide-[#161f33]">
-            {conversations
-              .filter(c => filterType === 'all' || c.status === filterType)
-              .map(chat => (
-                <div 
+            <div className="flex-1 overflow-y-auto divide-y divide-[#161f33]">
+              {conversations.map(chat => (
+                <div
                   key={chat.id}
-                  onClick={() => {
-                    setActiveChatId(chat.id);
-                    setConversations(prev => prev.map(item => item.id === chat.id ? { ...item, unreadCount: 0 } : item));
-                  }}
+                  onClick={() => { setActiveChatId(chat.id); setError(null); }}
                   className={`p-3.5 cursor-pointer transition-all ${
-                    activeChatId === chat.id 
-                      ? 'bg-[#162035] border-l-4 border-emerald-500' 
-                      : 'hover:bg-[#121828]'
+                    activeChat.id === chat.id ? 'bg-[#162035] border-l-4 border-emerald-500' : 'hover:bg-[#121828]'
                   }`}
                 >
                   <div className="flex items-center justify-between mb-1">
-                    <span className="text-xs font-bold text-white flex items-center gap-1.5">
-                      {chat.customerName}
-                      {chat.status === 'abandoned_cart' && (
-                        <span className="text-[9px] px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">Sepet</span>
-                      )}
-                      {chat.status === 'vip' && (
-                        <span className="text-[9px] px-1.5 py-0.2 rounded bg-purple-500/20 text-purple-300 border border-purple-500/30">VIP</span>
-                      )}
-                    </span>
-                    <span className="text-[10px] text-slate-500">{chat.lastMessageTime}</span>
+                    <span className="text-xs font-bold text-white">{chat.customerName}</span>
+                    <span className="text-[10px] text-slate-500">{formatTime(chat.lastMessageAt)}</span>
                   </div>
-                  <div className="text-[11px] text-slate-400 line-clamp-1 mb-1">{chat.lastMessage}</div>
-                  {chat.cartProduct && (
-                    <div className="flex items-center gap-1 text-[10px] text-indigo-400 font-medium">
-                      <ShoppingBag className="w-3 h-3" />
-                      <span>{chat.cartProduct.name} ({chat.cartProduct.price})</span>
-                    </div>
-                  )}
+                  <div className="text-[11px] text-slate-400 line-clamp-1">{chat.lastMessage}</div>
                 </div>
-            ))}
+              ))}
+            </div>
           </div>
-        </div>
 
-        {/* Right: Active Chat View (8 cols) */}
-        <div className="lg:col-span-8 flex flex-col bg-[#0b0f19]">
-          
-          {/* Chat Header */}
-          <div className="p-3.5 border-b border-[#1a2338] bg-[#0e1322] flex items-center justify-between">
-            <div className="flex items-center gap-3">
+          <div className="lg:col-span-8 flex flex-col bg-[#0b0f19] min-h-0">
+            <div className="p-3.5 border-b border-[#1a2338] bg-[#0e1322] flex items-center gap-3">
               <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-emerald-600 to-teal-400 flex items-center justify-center text-white font-bold text-xs">
-                {activeChat.customerName.charAt(0)}
+                {activeChat.customerName.replace('+', '').charAt(0)}
               </div>
               <div>
-                <div className="text-xs font-bold text-white flex items-center gap-2">
-                  <span>{activeChat.customerName}</span>
-                  <span className="text-[10px] text-emerald-400 flex items-center gap-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                    WhatsApp'ta Çevrimiçi
-                  </span>
-                </div>
+                <div className="text-xs font-bold text-white">{activeChat.customerName}</div>
                 <div className="text-[10px] text-slate-400">{activeChat.phone}</div>
               </div>
             </div>
 
-            {/* Quick Action: Payment Link & Details */}
-            {activeChat.cartProduct && (
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={handleCreateFastPaymentLink}
-                  className="px-3 py-1.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-lg shadow-emerald-600/20 transition-all"
-                  title="Müşteriye özel indirimli anlık PayTR/iyzico linki üret"
-                >
-                  <Tag className="w-3.5 h-3.5" />
-                  <span>Hızlı Ödeme Linki Üret (%10 İndirimli)</span>
-                </button>
-              </div>
-            )}
-          </div>
-
-          {/* Messages Stream */}
-          <div className="flex-1 p-4 overflow-y-auto space-y-3 bg-[radial-gradient(#182138_1px,transparent_1px)] [background-size:16px_16px]">
-            {/* Abandoned Cart Top Info Card */}
-            {activeChat.cartProduct && (
-              <div className="max-w-md mx-auto p-3 rounded-xl bg-[#141b2c] border border-[#212b42] flex items-center justify-between shadow-lg">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-8 h-8 rounded-lg bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center text-indigo-400">
-                    <ShoppingBag className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <div className="text-[10px] text-amber-400 font-bold uppercase tracking-wider">Terk Edilmiş Sepet</div>
-                    <div className="text-xs font-bold text-white">{activeChat.cartProduct.name}</div>
-                    <div className="text-[11px] text-slate-400">{activeChat.cartProduct.size} • Kalan Stok: {activeChat.cartProduct.stock}</div>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <div className="text-xs font-bold text-emerald-400">{activeChat.cartProduct.price}</div>
-                  <span className="text-[10px] text-slate-400">32 dk önce</span>
-                </div>
-              </div>
-            )}
-
-            {activeChat.messages.map((msg, idx) => (
-              <div 
-                key={idx} 
-                className={`flex flex-col ${msg.sender === 'customer' ? 'items-start' : 'items-end'}`}
-              >
-                <div className={`max-w-md p-3 rounded-2xl text-xs ${
-                  msg.sender === 'customer' 
-                    ? 'bg-[#182135] text-slate-100 rounded-tl-none border border-[#232f48]' 
-                    : msg.sender === 'ai'
-                    ? 'bg-gradient-to-br from-indigo-900/70 to-purple-900/70 text-white rounded-tr-none border border-indigo-500/40 shadow-lg shadow-indigo-500/10'
-                    : 'bg-emerald-800/60 text-white rounded-tr-none border border-emerald-500/30'
-                }`}>
-                  {msg.sender === 'ai' && (
-                    <div className="flex items-center gap-1 text-[10px] text-cyan-300 font-bold mb-1">
-                      <Sparkles className="w-3 h-3" />
-                      <span>İgeAds AI Satış Kapatıcı</span>
+            <div className="flex-1 p-4 overflow-y-auto space-y-3">
+              {activeChat.messages.map(msg => (
+                <div key={msg.id} className={`flex flex-col ${msg.direction === 'in' ? 'items-start' : 'items-end'}`}>
+                  <div className={`max-w-md p-3 rounded-2xl text-xs ${
+                    msg.direction === 'in'
+                      ? 'bg-[#182135] text-slate-100 rounded-tl-none border border-[#232f48]'
+                      : 'bg-emerald-800/60 text-white rounded-tr-none border border-emerald-500/30'
+                  }`}>
+                    <p className="leading-relaxed whitespace-pre-wrap">{msg.text}</p>
+                    {msg.errorMessage && <p className="text-[10px] text-rose-300 mt-1">{msg.errorMessage}</p>}
+                    <div className="text-[9px] text-slate-400 text-right mt-1 flex items-center justify-end gap-1">
+                      <span>{formatTime(msg.createdAt)}</span>
+                      {msg.direction === 'out' && <StatusIcon status={msg.status} />}
                     </div>
-                  )}
-                  <p className="leading-relaxed">{msg.text}</p>
-                  
-                  {msg.hasPaymentLink && (
-                    <div className="mt-2.5 pt-2 border-t border-white/10 flex items-center justify-between">
-                      <span className="text-[11px] font-extrabold text-emerald-300">Ödenecek Tutar: {msg.paymentAmount}</span>
-                      <span className="px-2 py-0.5 rounded bg-emerald-500 text-white text-[10px] font-bold flex items-center gap-1">
-                        Güvenli 3D Ödeme <ArrowUpRight className="w-3 h-3" />
-                      </span>
-                    </div>
-                  )}
-
-                  <div className="text-[9px] text-slate-400 text-right mt-1 flex items-center justify-end gap-1">
-                    <span>{msg.time}</span>
-                    {msg.sender !== 'customer' && <CheckCheck className="w-3 h-3 text-cyan-400" />}
                   </div>
                 </div>
-              </div>
-            ))}
-          </div>
-
-          {/* AI Sales Copilot Assistant Bar */}
-          <div className="p-2.5 bg-[#101626] border-t border-[#1a2338] flex items-center justify-between gap-3">
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] uppercase font-bold text-indigo-400 flex items-center gap-1">
-                <Sparkles className="w-3 h-3" />
-                AI Satış Asistanı:
-              </span>
-              <span className="text-[11px] text-slate-300 hidden md:inline">
-                "Beden uyarısı yap & son 3 stok aciliyeti ile %5 kişisel kupon ver"
-              </span>
+              ))}
             </div>
-            <button
-              onClick={handleAiAutoCloser}
-              className="px-3 py-1 bg-indigo-600/30 border border-indigo-500/40 hover:bg-indigo-600 text-indigo-200 hover:text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer shrink-0"
-            >
-              <Zap className="w-3 h-3 text-cyan-400" />
-              <span>Yapay Zekayla Cevapla & Satışı Kapat</span>
-            </button>
-          </div>
 
-          {/* Input Bar */}
-          <div className="p-3 bg-[#0c101a] border-t border-[#1a2338] flex items-center gap-2">
-            <input 
-              type="text"
-              value={inputText}
-              onChange={e => setInputText(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && handleSendMessage()}
-              placeholder="WhatsApp mesajınızı yazın... (Enter ile gönder)"
-              className="flex-1 bg-[#141b2c] border border-[#212b42] rounded-xl px-4 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 transition-colors"
-            />
-            <button
-              onClick={handleSendMessage}
-              className="p-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl transition-all cursor-pointer shadow-lg shadow-emerald-600/20"
-            >
-              <Send className="w-4 h-4" />
-            </button>
+            {!activeChat.canReply && (
+              <div className="px-3 py-2 bg-amber-950/30 border-t border-amber-500/20 text-[11px] text-amber-300 flex items-center gap-1.5">
+                <Clock className="w-3.5 h-3.5 shrink-0" />
+                Müşteri son 24 saatte yazmadığı için WhatsApp kuralları gereği serbest mesaj gönderilemez.
+              </div>
+            )}
+            {error && (
+              <div className="px-3 py-2 bg-rose-950/30 border-t border-rose-500/20 text-[11px] text-rose-300">{error}</div>
+            )}
+
+            <div className="p-3 bg-[#0c101a] border-t border-[#1a2338] flex items-center gap-2">
+              <input
+                type="text"
+                value={inputText}
+                disabled={!activeChat.canReply || sending}
+                onChange={e => setInputText(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && handleSendMessage()}
+                placeholder="Mesajınızı yazın... (Enter ile gönder)"
+                className="flex-1 bg-[#141b2c] border border-[#212b42] rounded-xl px-4 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 disabled:opacity-50"
+              />
+              <button
+                onClick={handleSendMessage}
+                disabled={!activeChat.canReply || sending}
+                className="p-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl cursor-pointer disabled:opacity-50"
+              >
+                <Send className="w-4 h-4" />
+              </button>
+            </div>
           </div>
         </div>
-      </div>
       )}
     </div>
   );

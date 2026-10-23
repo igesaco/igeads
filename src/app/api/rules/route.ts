@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireTenant } from '@/lib/tenant';
+import { RULE_ACTIONS, RULE_METRICS, isRuleAction, isRuleMetric } from '@/lib/rules-engine';
 
 export async function GET(request: Request) {
   try {
@@ -28,19 +29,27 @@ export async function POST(request: Request) {
     const tenant = await requireTenant(request);
     if (tenant instanceof NextResponse) return tenant;
     const body = await request.json();
-    if (!body.title || !body.trigger || !body.action) {
-      return NextResponse.json({ success: false, error: 'Kural adı, tetikleyici ve aksiyon zorunludur' }, { status: 400 });
+    const title = String(body.title || '').trim();
+    const threshold = Number(body.threshold);
+    if (!title || !isRuleMetric(body.metric) || !isRuleAction(body.actionType) || !Number.isFinite(threshold) || threshold < 0) {
+      return NextResponse.json({ success: false, error: 'Kural adı, koşul, eşik değeri ve aksiyon zorunludur' }, { status: 400 });
     }
+    if (body.actionType === 'pause_campaign' && body.metric === 'product_stock_below') {
+      return NextResponse.json({ success: false, error: 'Stok kuralı kampanya duraklatamaz; ürünler kampanyalara bağlı değil' }, { status: 400 });
+    }
+    const metric = RULE_METRICS[body.metric as keyof typeof RULE_METRICS];
     const newRule = await prisma.automationRule.create({
       data: {
         organizationId: tenant.orgId,
-        title: body.title,
-        category: body.category || 'budget',
-        trigger: body.trigger,
-        action: body.action,
+        title,
+        category: body.metric === 'product_stock_below' ? 'stock' : 'budget',
+        trigger: `${metric.label}: ${threshold} ${metric.unit}`,
+        action: RULE_ACTIONS[body.actionType as keyof typeof RULE_ACTIONS],
+        metric: body.metric,
+        threshold,
+        actionType: body.actionType,
         enabled: body.enabled ?? true,
-        impactScore: Number(body.impactScore) || 85,
-        lastTriggered: 'Yeni oluşturuldu'
+        lastTriggered: ''
       }
     });
 
@@ -73,7 +82,7 @@ export async function PATCH(request: Request) {
     const updated = await prisma.automationRule.update({
       where: { id },
       data: {
-        ...(enabled !== undefined && { enabled })
+        ...(enabled !== undefined && { enabled: Boolean(enabled) })
       }
     });
 

@@ -178,8 +178,16 @@ async function runAllTests() {
       path: '/api/rules', 
       method: 'POST', 
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title: 'Test Stok Koruma Kuralı', trigger: 'Stok < 10', action: 'Reklamı durdur' })
+      body: JSON.stringify({ title: 'Test Stok Koruma Kuralı', metric: 'product_stock_below', threshold: 10, actionType: 'notify' })
     },
+    {
+      name: 'Eksik alanlı kural reddedilir',
+      path: '/api/rules', method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title: 'Eksik', trigger: 'Stok < 10', action: 'Reklamı durdur' }),
+      expect: r => r.status === 400
+    },
+    { name: 'Kuralları şimdi çalıştır', path: '/api/rules/run', method: 'POST', expect: r => r.data?.success === true && Array.isArray(r.data.data) },
+    { name: 'Cron anahtarsız 401', path: '/api/cron/rules', method: 'GET', anonymous: true, expect: r => r.status === 401 },
 
     // 5. Canlı Satış Odası (Live War Room) API
     { path: '/api/war-room', method: 'GET' },
@@ -210,7 +218,17 @@ async function runAllTests() {
       path: '/api/whatsapp-inbox', 
       method: 'POST', 
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ chatId: 'chat-1', message: 'Test mesajı iletildi' })
+      body: JSON.stringify({ to: '905000000000', text: 'Test mesajı' }),
+      name: 'WhatsApp bağlı değilken sahte başarı yok',
+      expect: r => r.status === 400 && r.data?.success === false
+    },
+    { name: 'WhatsApp webhook yanlış token 403', path: '/api/whatsapp/webhook?hub.mode=subscribe&hub.verify_token=yanlis&hub.challenge=1', method: 'GET', anonymous: true, expect: r => r.status === 403 },
+    {
+      name: 'WhatsApp webhook imzasız reddedilir',
+      path: '/api/whatsapp/webhook', method: 'POST', anonymous: true,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ entry: [] }),
+      expect: r => r.status === 401 || r.status === 503
     },
 
     // 9. Müşteri Özel Portalı

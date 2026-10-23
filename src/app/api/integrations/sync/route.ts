@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { fetchMetaCampaigns } from '@/lib/integrations/meta';
-import { fetchTrendyolProducts } from '@/lib/integrations/trendyol';
+import { fetchTrendyolProducts, fetchTrendyolBuybox } from '@/lib/integrations/trendyol';
 import { fetchHepsiburadaProducts } from '@/lib/integrations/hepsiburada';
 import { requireTenant } from '@/lib/tenant';
 import { hepsiburadaCredentials, metaCredentials, parseStoredCredentials, trendyolCredentials } from '@/lib/integrations/credentials';
@@ -144,6 +144,23 @@ export async function POST(request: Request) {
         savedCount++;
       }
 
+      // Buybox state is best effort: the product sync still counts if this endpoint is unavailable
+      let buyboxNote = '';
+      try {
+        const infos = await fetchTrendyolBuybox({ supplierId, apiKey, apiSecret }, tyProducts.map(p => p.barcode));
+        for (const info of infos) {
+          if (!Number.isFinite(info.buyboxPrice) || info.buyboxPrice <= 0) continue;
+          await prisma.product.updateMany({
+            where: { organizationId: orgId, sku: info.barcode },
+            data: { buyboxPrice: info.buyboxPrice, isBuybox: info.buyboxOrder === 1, buyboxCheckedAt: new Date() }
+          });
+        }
+        if (infos.length) buyboxNote = ` ${infos.length} ürünün Buybox durumu güncellendi.`;
+      } catch (bbErr: any) {
+        console.warn('Trendyol buybox fetch failed:', bbErr.message);
+        buyboxNote = ' Buybox bilgisi alınamadı.';
+      }
+
       await prisma.integrationConfig.update({
         where: { id: config.id },
         data: { lastSync: new Date() }
@@ -151,7 +168,7 @@ export async function POST(request: Request) {
 
       return NextResponse.json({
         success: true,
-        message: `Trendyol'dan ${savedCount} adet canlı ürün ve stok veritabanına eşitlendi.`,
+        message: `Trendyol'dan ${savedCount} adet canlı ürün ve stok veritabanına eşitlendi.${buyboxNote}`,
         syncedCount: savedCount
       });
     }

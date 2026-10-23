@@ -40,6 +40,7 @@ export interface MarketplaceProduct {
   shippingCost: number;
   netMargin: number; // Net Kalan Kâr (TL)
   netMarginPercentage: number;
+  costsKnown?: boolean; // false until the seller enters product cost and shipping
   activeAdCampaignsCount: number;
   autoHaltAdsOnLowStock: boolean;
 }

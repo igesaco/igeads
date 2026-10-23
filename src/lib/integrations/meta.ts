@@ -90,3 +90,17 @@ export async function fetchMetaCampaigns(credentials: MetaCredentials) {
     throw err;
   }
 }
+
+/** Pauses a campaign; needs a token with the ads_management permission */
+export async function pauseMetaCampaign(accessToken: string, campaignId: string) {
+  const res = await fetch(`https://graph.facebook.com/v21.0/${encodeURIComponent(campaignId)}`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${accessToken.trim()}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ status: 'PAUSED' })
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || data.error) {
+    throw new Error(data.error?.message || `Meta kampanyası duraklatılamadı (${res.status})`);
+  }
+  return data;
+}

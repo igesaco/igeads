@@ -17,8 +17,11 @@ import {
 } from 'lucide-react';
 
 export default function VideoVisionDecoder() {
-  const [videoUrl, setVideoUrl] = useState('https://instagram.com/reel/C8_RakipModaX_ViralDeriMont');
+  const [videoUrl, setVideoUrl] = useState('');
+  const [description, setDescription] = useState('');
+  const [product, setProduct] = useState('');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
   const [decodedData, setDecodedData] = useState<{
@@ -32,48 +35,29 @@ export default function VideoVisionDecoder() {
       soundSuggestion: string;
       callToAction: string;
     }
-  } | null>({
-    hookAnalysis: 'Merak & Kalite Şüphesi Kancası: İlk 2.2 saniyede cekete su dökülüyor ve suyun akıp gitmesi mikro çekimle gösteriliyor. İzleyiciyi doğrudan durduruyor.',
-    hookScore: 94,
-    visualPacing: 'Hızlı Jump-Cut (Her 1.8 saniyede bir kamera açısı değişiyor). 124 BPM lo-fi trap ritmiyle senkronize.',
-    secretConversionFactor: 'Rakip fiyatı gizliyor ve sadece "Kutuyu açarken çıkan koku" hissiyatına odaklanarak lüks algısı yaratıyor. Yorumlarda "nereden aldın" sorusunu tetikliyor.',
-    antiScript: {
-      hook: '"Deri montunuza su dökmek marifet değil! Asıl test: Ateşe tuttuğunuzda ne oluyor?" (Şok Kancası)',
-      timeline: [
-        '0-3 sn: Gerçek İtalyan kuzu derisi üzerine çakmak alevi yaklaştırılır, deri kararmaz ve yanmaz.',
-        '3-7 sn: Rakibin sentetik montu ile hakiki kuzu derisinin astar dikişleri makro karşılaştırması.',
-        '7-13 sn: El işçiliği, pirinç fermuar sesi (ASMR tatmin edici fermuar çekişi).',
-        '13-18 sn: "Ömür boyu dikiş ve bakım garantisi" kutu sertifikası gösterimi.'
-      ],
-      soundSuggestion: 'Derin bas vuruşlu Dark Aesthetic / Phonk ritmi (TikTok Trend Sesleri)',
-      callToAction: 'Bugün sipariş veren ilk 30 kişiye deri bakım cilası hediye. Link profilde!'
-    }
-  });
+  } | null>(null);
 
-  const handleAnalyze = (e: React.FormEvent) => {
+  const handleAnalyze = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!videoUrl) return;
     setIsAnalyzing(true);
-    setTimeout(() => {
-      setIsAnalyzing(false);
-      setDecodedData({
-        hookAnalysis: 'İndirim Aciliyeti & FOMO Kancası: "Bu gece 00:00\'da tüm fiyatlar artıyor" geri sayımı ile başlıyor.',
-        hookScore: 88,
-        visualPacing: 'Dinamik kaydırma ve beat drop geçişleri.',
-        secretConversionFactor: 'Müşteri yorumları ekran görüntüsü video üzerine şeffaf overlay olarak basılmış.',
-        antiScript: {
-          hook: '"Sahte indirimlerle göz boyayan markalara kanmayın: İşte net fabrika maliyeti!"',
-          timeline: [
-            '0-2 sn: Şeffaf maliyet tablosu ve kumaş metresi.',
-            '2-8 sn: Neden aracısız doğrudan üreticiden almanın daha mantıklı olduğunun 3 nedeni.',
-            '8-15 sn: Müşteri memnuniyet videolarından hızlı montaj.',
-            '15-18 sn: Şeffaf fiyatlandırma garantisi ile profildeki bağlantıya yönlendirme.'
-          ],
-          soundSuggestion: 'Trend Enerjik Hip-Hop Beat',
-          callToAction: 'Aracısız gerçek üretici fiyatını görmek için hemen profildeki linke tıkla.'
-        }
+    setError(null);
+    try {
+      const res = await fetch('/api/video-vision', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ videoUrl, description, product })
       });
-    }, 1500);
+      const json = await res.json();
+      if (!json.success) {
+        setError(json.error || 'Analiz yapılamadı');
+        return;
+      }
+      setDecodedData(json.data);
+    } catch (err: any) {
+      setError(err.message || 'Sunucuya ulaşılamadı');
+    } finally {
+      setIsAnalyzing(false);
+    }
   };
 
   const handleCopyScript = () => {
@@ -105,26 +89,46 @@ export default function VideoVisionDecoder() {
 
       {/* Input Form */}
       <div className="glass-panel p-4 rounded-2xl">
-        <form onSubmit={handleAnalyze} className="flex flex-col sm:flex-row gap-3 items-center">
-          <div className="relative flex-1 w-full">
-            <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-            <input 
+        <form onSubmit={handleAnalyze} className="space-y-3">
+          <textarea
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            required
+            rows={4}
+            placeholder="Rakip videoda ne oluyor? Örn: İlk saniyede montun üstüne su dökülüyor, su akıp gidiyor. Sonra hızlı kesmelerle detay çekimleri, en sonda 'ilk 50 siparişe kargo bedava' yazısı..."
+            className="w-full bg-[#121826] border border-[#1f293d] rounded-xl px-4 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-purple-500"
+          />
+          <div className="flex flex-col sm:flex-row gap-3">
+            <input
               type="text"
-              value={videoUrl}
-              onChange={(e) => setVideoUrl(e.target.value)}
-              placeholder="Rakip Reels, TikTok veya Meta Reklam Linki Yapıştırın..."
-              className="w-full bg-[#121826] border border-[#1f293d] rounded-xl pl-10 pr-4 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-purple-500 font-mono"
+              value={product}
+              onChange={(e) => setProduct(e.target.value)}
+              placeholder="Sizin ürününüz (isteğe bağlı)"
+              className="flex-1 bg-[#121826] border border-[#1f293d] rounded-xl px-4 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-purple-500"
             />
+            <div className="relative flex-1">
+              <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                value={videoUrl}
+                onChange={(e) => setVideoUrl(e.target.value)}
+                placeholder="Video bağlantısı (isteğe bağlı, not olarak)"
+                className="w-full bg-[#121826] border border-[#1f293d] rounded-xl pl-10 pr-4 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-purple-500 font-mono"
+              />
+            </div>
+            <button
+              type="submit"
+              disabled={isAnalyzing}
+              className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-xs font-bold text-white flex items-center justify-center gap-2 shrink-0 cursor-pointer disabled:opacity-60"
+            >
+              <Sparkles className={`w-3.5 h-3.5 ${isAnalyzing ? 'animate-spin' : ''}`} />
+              <span>{isAnalyzing ? 'Analiz ediliyor...' : 'Çözümle & Karşı Senaryo Yaz'}</span>
+            </button>
           </div>
-
-          <button
-            type="submit"
-            disabled={isAnalyzing}
-            className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-xs font-bold text-white shadow-md shadow-purple-600/25 transition-all flex items-center justify-center gap-2 shrink-0 cursor-pointer disabled:opacity-60"
-          >
-            <Sparkles className={`w-3.5 h-3.5 ${isAnalyzing ? 'animate-spin' : ''}`} />
-            <span>{isAnalyzing ? 'Video Analiz Ediliyor...' : 'Videoyu Deşifre Et & Karşı Senaryo Yaz'}</span>
-          </button>
+          <p className="text-[11px] text-slate-500">
+            Sosyal medya videoları dışarıdan indirilemediği için analiz, sizin anlattığınıza göre yapay zekayla yapılır.
+          </p>
+          {error && <p className="text-xs text-rose-400 font-semibold">{error}</p>}
         </form>
       </div>
 
