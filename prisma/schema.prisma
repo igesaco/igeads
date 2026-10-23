@@ -106,36 +106,48 @@ model Campaign {
 }
 
 model Product {
-  id             String   @id @default(cuid())
-  organizationId String?
-  name           String
-  clientId       String?
-  client         Client?  @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  sku            String
-  marketplace    String // Trendyol, Hepsiburada, Amazon, Direct
-  stock          Int
-  price          Float
-  buyboxPrice    Float
-  isBuybox       Boolean  @default(true)
-  returnRate     Float    @default(0)
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  id              String    @id @default(cuid())
+  organizationId  String?
+  name            String
+  clientId        String?
+  client          Client?   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  sku             String
+  marketplace     String // Trendyol, Hepsiburada, Amazon, Direct
+  stock           Int
+  price           Float
+  buyboxPrice     Float
+  isBuybox        Boolean   @default(true)
+  returnRate      Float     @default(0)
+  // Unit economics entered by the seller; null until entered (no assumed defaults)
+  cogs            Float?
+  shippingCost    Float?
+  commissionRate  Float? // percent
+  // Set only when the marketplace actually reported buybox data; null = buybox state unknown
+  buyboxCheckedAt DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
   @@unique([organizationId, sku])
 }
 
 model AutomationRule {
-  id             String   @id @default(cuid())
+  id             String    @id @default(cuid())
   organizationId String?
   title          String
   category       String // budget, stock, creative, repricer
   trigger        String
   action         String
-  enabled        Boolean  @default(true)
-  impactScore    Int      @default(90)
-  lastTriggered  String   @default("Az önce")
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  enabled        Boolean   @default(true)
+  impactScore    Int       @default(90)
+  lastTriggered  String    @default("Az önce")
+  // Structured form evaluated by the rules engine (src/lib/rules-engine.ts); null = descriptive only
+  metric         String? // product_stock_below, campaign_roas_below, campaign_roas_above
+  threshold      Float?
+  actionType     String? // notify, pause_campaign
+  timesTriggered Int       @default(0)
+  lastRunAt      DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
   @@index([organizationId])
 }
@@ -229,4 +241,20 @@ model AgencyContract {
   updatedAt            DateTime @updatedAt
 
   @@index([organizationId])
+}
+
+// WhatsApp Cloud API messages: inbound ones arrive via the webhook, outbound ones are sent from the inbox
+model WhatsAppMessage {
+  id             String   @id @default(cuid())
+  organizationId String
+  waId           String // customer's WhatsApp number (digits only)
+  customerName   String?
+  direction      String // in, out
+  text           String
+  waMessageId    String?  @unique
+  status         String   @default("received") // received, sent, delivered, read, failed
+  errorMessage   String?
+  createdAt      DateTime @default(now())
+
+  @@index([organizationId, waId])
 }

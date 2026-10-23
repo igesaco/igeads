@@ -155,3 +155,42 @@ export async function updateTrendyolPrice(
 
   return await res.json();
 }
+
+export interface TrendyolBuyboxInfo {
+  barcode: string;
+  buyboxOrder: number; // 1 = this seller holds the buybox
+  buyboxPrice: number;
+  hasMultipleSeller: boolean;
+}
+
+/** Buybox state per barcode; Trendyol accepts at most 10 barcodes per call */
+export async function fetchTrendyolBuybox(credentials: TrendyolCredentials, barcodes: string[]): Promise<TrendyolBuyboxInfo[]> {
+  const { supplierId, apiKey, apiSecret } = credentials;
+  const cleanSupplierId = supplierId.trim();
+  const url = `${TRENDYOL_BASE}/product/sellers/${cleanSupplierId}/products/buybox-information`;
+  const results: TrendyolBuyboxInfo[] = [];
+
+  for (let i = 0; i < barcodes.length; i += 10) {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: trendyolHeaders(cleanSupplierId, apiKey, apiSecret),
+      body: JSON.stringify({ barcodes: barcodes.slice(i, i + 10) })
+    });
+    if (!res.ok) {
+      const errorText = await res.text();
+      throw new Error(`Trendyol buybox bilgisi alınamadı (${res.status}): ${errorText.slice(0, 150)}`);
+    }
+    const data = await res.json();
+    for (const b of data.buyboxInfo || []) {
+      if (b.barcode) {
+        results.push({
+          barcode: b.barcode,
+          buyboxOrder: Number(b.buyboxOrder),
+          buyboxPrice: Number(b.buyboxPrice),
+          hasMultipleSeller: Boolean(b.hasMultipleSeller)
+        });
+      }
+    }
+  }
+  return results;
+}

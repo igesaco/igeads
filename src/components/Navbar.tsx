@@ -41,10 +41,13 @@ export default function Navbar({
   const [unreadCount, setUnreadCount] = React.useState(0);
 
   React.useEffect(() => {
-    fetch('/api/notifications')
+    const load = () => fetch('/api/notifications')
       .then(r => r.json())
       .then(json => { if (json.success) setUnreadCount(json.unreadCount || 0); })
       .catch(() => {});
+    load();
+    window.addEventListener('notifications_updated', load);
+    return () => window.removeEventListener('notifications_updated', load);
   }, [activeTab]);
 
   const getTabTitle = () => {

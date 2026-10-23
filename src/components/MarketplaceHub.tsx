@@ -66,27 +66,19 @@ export default function MarketplaceHub() {
           else if (rawChannel.includes('n11')) channel = 'n11';
           else channel = 'hepsiburada';
 
-          const price = Number(p.price) || 1000;
+          const price = Number(p.price) || 0;
           const stock = Number(p.stock) || 0;
-          const commissionRate = channel === 'idefix' ? 14 : channel === 'amazon' ? 15 : channel === 'hepsiburada' ? 17 : 20;
-          const cogs = Math.round(price * 0.42);
-          const shippingCost = 45;
+          // Typical category-average commission until the seller enters their own rate
+          const commissionRate = p.commissionRate ?? (channel === 'idefix' ? 14 : channel === 'amazon' ? 15 : channel === 'hepsiburada' ? 17 : 20);
+          const costsKnown = p.cogs !== null && p.cogs !== undefined && p.shippingCost !== null && p.shippingCost !== undefined;
+          const cogs = Number(p.cogs) || 0;
+          const shippingCost = Number(p.shippingCost) || 0;
           const commissionAmt = Math.round(price * (commissionRate / 100));
           const netMargin = Math.round(price - commissionAmt - cogs - shippingCost);
-          const netMarginPercentage = Math.round((netMargin / price) * 100);
+          const netMarginPercentage = price > 0 ? Math.round((netMargin / price) * 100) : 0;
 
-          // Build multi-channel distribution
-          const otherChannels: ('trendyol' | 'amazon' | 'hepsiburada' | 'idefix' | 'n11')[] = ['hepsiburada', 'trendyol', 'amazon'];
-          const salesChannels = otherChannels.map(ch => ({
-            channel: ch,
-            price: ch === channel ? price : Math.round(price * (ch === 'trendyol' ? 1.02 : ch === 'amazon' ? 1.05 : 1)),
-            stock: ch === channel ? stock : Math.max(0, stock - Math.floor(Math.random() * 4)),
-            commissionRate: ch === 'idefix' ? 14 : ch === 'amazon' ? 15 : ch === 'hepsiburada' ? 17 : 20,
-            sales30Days: Math.max(1, Math.floor(stock * 0.4))
-          }));
-
-          // Put primary channel first
-          salesChannels.sort((a, b) => (a.channel === channel ? -1 : 1));
+          // Only the marketplace the product was actually synced from; sales counts are not imported yet
+          const salesChannels = [{ channel, price, stock, commissionRate, sales30Days: 0 }];
 
           return {
             id: p.id,
@@ -102,7 +94,8 @@ export default function MarketplaceHub() {
             shippingCost,
             netMargin,
             netMarginPercentage,
-            activeAdCampaignsCount: stock > 10 ? 2 : 0,
+            costsKnown,
+            activeAdCampaignsCount: 0,
             autoHaltAdsOnLowStock: stock < 10
           };
         });
@@ -218,10 +211,14 @@ export default function MarketplaceHub() {
         body: JSON.stringify({
           id: selectedProduct.id,
           price: Number(editPrice),
-          stock: Number(editStock)
+          stock: Number(editStock),
+          cogs: Number(editCogs),
+          shippingCost: Number(editShipping),
+          commissionRate: Number(editCommissionRate)
         })
       });
       const json = await res.json();
+      setSyncStatus({ type: json.success ? 'success' : 'error', message: json.success ? json.message : (json.error || 'Ürün güncellenemedi') });
       if (json.success) {
         // Update local state
         const commissionAmt = Math.round(editPrice * (editCommissionRate / 100));
@@ -238,6 +235,7 @@ export default function MarketplaceHub() {
             }));
             return {
               ...p,
+              costsKnown: true,
               cogs: editCogs,
               shippingCost: editShipping,
               netMargin,
@@ -250,6 +248,7 @@ export default function MarketplaceHub() {
 
         setSelectedProduct(prev => prev ? {
           ...prev,
+          costsKnown: true,
           cogs: editCogs,
           shippingCost: editShipping,
           netMargin,
@@ -552,8 +551,14 @@ export default function MarketplaceHub() {
 
                       <div className="flex items-center gap-3 self-end sm:self-center">
                         <div className="text-right">
-                          <p className="text-xs font-extrabold text-emerald-400">Net Kâr: ₺{prod.netMargin}</p>
-                          <p className="text-[10px] text-slate-400 font-medium">Kâr Marjı: %{prod.netMarginPercentage}</p>
+                          {prod.costsKnown ? (
+                            <>
+                              <p className="text-xs font-extrabold text-emerald-400">Net Kâr: ₺{prod.netMargin}</p>
+                              <p className="text-[10px] text-slate-400 font-medium">Kâr Marjı: %{prod.netMarginPercentage}</p>
+                            </>
+                          ) : (
+                            <p className="text-[10px] text-amber-400 font-medium">Maliyet girilmedi</p>
+                          )}
                         </div>
 
                         <span className={`text-xs font-bold px-2.5 py-1 rounded-lg border flex items-center gap-1 ${
@@ -679,6 +684,10 @@ export default function MarketplaceHub() {
                   <span className="font-semibold text-rose-400">-₺{selectedProduct.shippingCost}</span>
                 </div>
 
+                {!selectedProduct.costsKnown && (
+                  <p className="text-[11px] text-amber-400">Ürün maliyeti ve kargo girilmedi. Doğru net kâr için &quot;Düzenle&quot; ile girin.</p>
+                )}
+
                 <div className="flex items-center justify-between py-3 rounded-xl bg-emerald-950/30 border border-emerald-500/40 px-3.5 mt-3 shadow-inner">
                   <div>
                     <span className="text-emerald-300 font-bold block text-xs">Birim Başına Net Cebe Kalan:</span>
@@ -688,25 +697,6 @@ export default function MarketplaceHub() {
                     +₺{selectedProduct.netMargin}
                   </span>
                 </div>
-
-                {/* POAS Indicator */}
-                <div className="flex items-center justify-between py-2 px-3 rounded-xl bg-[#0f1422] border border-[#1f2a42] text-[11px] mt-2">
-                  <span className="text-slate-300 font-semibold">Hedef POAS (Kâr Üzerinden Reklam):</span>
-                  <span className="font-bold text-cyan-400">
-                    {((selectedProduct.netMargin / ((selectedProduct.salesChannels[0]?.price || 1000) * 0.25))).toFixed(2)}x POAS
-                  </span>
-                </div>
-              </div>
-
-              {/* AI Recommendation */}
-              <div className="mt-4 p-3 rounded-xl bg-indigo-950/30 border border-indigo-500/30 text-xs">
-                <div className="flex items-center gap-1.5 text-indigo-300 font-bold mb-1">
-                  <Zap className="w-3.5 h-3.5" />
-                  <span>Yapay Zeka Fiyat & Reklam Önerisi:</span>
-                </div>
-                <p className="text-[11px] text-slate-300 leading-relaxed">
-                  Bu üründe en yüksek net kâr marjı (%{selectedProduct.netMarginPercentage}) için Meta reklam trafiğinizi düşük komisyonlu kanala yönlendirebilirsiniz. Stok 10 adedin altına indiğinde kural gereği reklam bütçesi korunacaktır.
-                </p>
               </div>
             </div>
           ) : (
