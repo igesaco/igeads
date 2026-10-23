@@ -13,6 +13,7 @@ export interface GoogleConnectionResult {
   customerId?: string;
   pingMs: number;
   error?: string;
+  message?: string;
 }
 
 export async function testGoogleAdsConnection(credentials: GoogleCredentials): Promise<GoogleConnectionResult> {
@@ -36,10 +37,10 @@ export async function testGoogleAdsConnection(credentials: GoogleCredentials): P
     };
   }
 
-  // Verification simulation / OAuth check
-  await new Promise(r => setTimeout(r, 200));
+  // Only the ID format is checked here; there is no live Google Ads API call yet
   return {
     success: true,
+    message: 'Müşteri numarası formatı doğru. Google Ads API ile canlı doğrulama henüz yapılmıyor.',
     customerId: `${cleanId.slice(0, 3)}-${cleanId.slice(3, 6)}-${cleanId.slice(6)}`,
     pingMs: Date.now() - start
   };

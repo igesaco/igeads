@@ -18,9 +18,12 @@ interface AuthModalProps {
   isOpen: boolean;
   onClose: () => void;
   onLoginSuccess: (userData: { name: string; email: string; role: string; type: 'agency' | 'business' }) => void;
+  currentUser?: { name: string; email: string } | null;
+  onLogout?: () => void;
+  canClose?: boolean;
 }
 
-export default function AuthModal({ isOpen, onClose, onLoginSuccess }: AuthModalProps) {
+export default function AuthModal({ isOpen, onClose, onLoginSuccess, currentUser, onLogout, canClose = true }: AuthModalProps) {
   const [isLogin, setIsLogin] = useState(true);
   const [accountType, setAccountType] = useState<'agency' | 'business'>('business');
   const [name, setName] = useState('');
@@ -28,24 +31,66 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess }: AuthModal
   const [password, setPassword] = useState('');
   const [brandName, setBrandName] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   if (!isOpen) return null;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!isLogin) {
+      setError('Yeni hesaplar ajans yöneticisi tarafından açılır. Lütfen yöneticinizle iletişime geçin.');
+      return;
+    }
     setIsLoading(true);
+    setError(null);
 
-    setTimeout(() => {
-      setIsLoading(false);
-      onLoginSuccess({
-        name: name || (isLogin ? 'Ahmet Yılmaz' : 'Yeni Kullanıcı'),
-        email: email || 'ahmet@velvetcouture.com',
-        role: accountType === 'agency' ? 'Ajans Direktörü' : 'E-Ticaret Yöneticisi',
-        type: accountType
+    try {
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password })
       });
+      const json = await res.json();
+      if (!json.success) {
+        setError(json.error || 'Giriş yapılamadı');
+        return;
+      }
+      setPassword('');
+      onLoginSuccess(json.data);
       onClose();
-    }, 1000);
+    } catch (err: any) {
+      setError(err.message || 'Sunucuya ulaşılamadı');
+    } finally {
+      setIsLoading(false);
+    }
   };
+
+  if (currentUser) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in">
+        <div className="w-full max-w-sm bg-[#0c101a] border border-indigo-500/40 rounded-3xl p-6 shadow-2xl relative">
+          <button
+            onClick={onClose}
+            className="absolute top-5 right-5 w-8 h-8 rounded-full bg-[#161c2c] text-slate-400 hover:text-white flex items-center justify-center transition-all cursor-pointer"
+          >
+            <X className="w-4 h-4" />
+          </button>
+          <div className="flex items-center gap-2 mb-4">
+            <ShieldCheck className="w-5 h-5 text-emerald-400" />
+            <h2 className="text-sm font-black text-white">Oturum açık</h2>
+          </div>
+          <p className="text-xs text-slate-300">{currentUser.name}</p>
+          <p className="text-xs text-slate-500 mb-5">{currentUser.email}</p>
+          <button
+            onClick={onLogout}
+            className="w-full py-2.5 rounded-xl bg-rose-600/90 hover:bg-rose-500 font-bold text-white text-xs cursor-pointer"
+          >
+            Çıkış Yap
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in">
@@ -54,12 +99,12 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess }: AuthModal
         <div className="absolute top-0 right-0 w-48 h-48 bg-indigo-500/15 rounded-full blur-3xl pointer-events-none"></div>
 
         {/* Close Button */}
-        <button 
+        {canClose && <button 
           onClick={onClose}
           className="absolute top-5 right-5 w-8 h-8 rounded-full bg-[#161c2c] text-slate-400 hover:text-white flex items-center justify-center transition-all cursor-pointer"
         >
           <X className="w-4 h-4" />
-        </button>
+        </button>}
 
         {/* Header */}
         <div className="mb-6">
@@ -173,6 +218,10 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess }: AuthModal
               />
             </div>
           </div>
+
+          {error && (
+            <p className="text-rose-400 font-medium">{error}</p>
+          )}
 
           <button
             type="submit"

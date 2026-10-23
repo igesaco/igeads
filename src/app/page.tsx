@@ -50,25 +50,10 @@ export default function Home() {
     email: string;
     role: string;
     type: 'agency' | 'business';
-  } | null>({
-    name: 'İlker Bey (Kurucu)',
-    email: 'admin@igeads.com',
-    role: 'Ajans Yöneticisi & Media Buyer',
-    type: 'agency'
-  });
+  } | null>(null);
+  const [authChecked, setAuthChecked] = useState(false);
 
-  React.useEffect(() => {
-    // 1. Restore user session if saved
-    try {
-      const saved = localStorage.getItem('igeads_user');
-      if (saved) {
-        setCurrentUser(JSON.parse(saved));
-      }
-    } catch {
-      // ignore
-    }
-
-    // 2. Fetch clients to set active client
+  const loadClients = () => {
     fetch('/api/clients')
       .then(r => r.json())
       .then(json => {
@@ -81,16 +66,37 @@ export default function Home() {
       .catch(() => {
         setActiveClient('Yeni Marka Ekleyin');
       });
+  };
+
+  React.useEffect(() => {
+    // Restore the server-side session (httpOnly cookie)
+    fetch('/api/auth/me')
+      .then(r => r.json())
+      .then(json => {
+        if (json.success) {
+          setCurrentUser(json.data);
+          loadClients();
+        }
+      })
+      .catch(() => {})
+      .finally(() => setAuthChecked(true));
   }, []);
 
   const handleUserLogin = (userData: { name: string; email: string; role: string; type: 'agency' | 'business' }) => {
     setCurrentUser(userData);
+    loadClients();
+  };
+
+  const handleLogout = async () => {
     try {
-      localStorage.setItem('igeads_user', JSON.stringify(userData));
+      await fetch('/api/auth/logout', { method: 'POST' });
     } catch {
       // ignore
     }
+    setCurrentUser(null);
+    setIsAuthModalOpen(false);
   };
+
 
   // New Campaign Form State
   const [campName, setCampName] = useState('');
@@ -123,6 +129,22 @@ export default function Home() {
       setActiveTab('ads');
     }, 1200);
   };
+
+  // Until signed in, only the login screen is shown
+  if (!currentUser) {
+    return (
+      <div className="min-h-screen bg-[#080B11]">
+        {authChecked && (
+          <AuthModal
+            isOpen
+            canClose={false}
+            onClose={() => {}}
+            onLoginSuccess={handleUserLogin}
+          />
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-screen bg-[#080B11] text-slate-100 selection:bg-indigo-600 selection:text-white">
@@ -245,6 +267,8 @@ export default function Home() {
         isOpen={isAuthModalOpen}
         onClose={() => setIsAuthModalOpen(false)}
         onLoginSuccess={handleUserLogin}
+        currentUser={currentUser}
+        onLogout={handleLogout}
       />
 
       {/* Ghost Marketer Sabah Brifingi Modalı */}

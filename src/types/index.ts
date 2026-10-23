@@ -123,7 +123,7 @@ export interface IntegrationAccount {
   lastSync: string;
   badgeColor: string;
   syncFrequency: string;
-  fields: { label: string; placeholder: string; isSecret?: boolean; value?: string }[];
+  fields: { label: string; placeholder: string; isSecret?: boolean; value?: string; hasStoredValue?: boolean }[];
 }
 
 export interface BuyboxItem {

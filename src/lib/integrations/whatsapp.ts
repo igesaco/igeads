@@ -29,10 +29,10 @@ export async function testWhatsAppConnection(credentials: WhatsAppCredentials): 
     };
   }
 
-  const url = `https://graph.facebook.com/v21.0/${phoneNumberId.trim()}?fields=verified_name,code_verification_status,display_phone_number,quality_rating&access_token=${systemUserToken.trim()}`;
+  const url = `https://graph.facebook.com/v21.0/${phoneNumberId.trim()}?fields=verified_name,code_verification_status,display_phone_number,quality_rating`;
 
   try {
-    const res = await fetch(url);
+    const res = await fetch(url, { headers: { Authorization: `Bearer ${systemUserToken.trim()}` } });
     const pingMs = Date.now() - start;
     const data = await res.json();
 

@@ -169,7 +169,6 @@ export default function IntegrationsHub() {
 
     const updatedItem: IntegrationAccount = {
       ...editingItem,
-      connected: true,
       fields: updatedFields,
       lastSync: 'Az önce güncellendi'
     };
@@ -186,10 +185,12 @@ export default function IntegrationsHub() {
           name: editingItem.platform,
           category: editingItem.category,
           accountName: editingItem.accountName,
-          credentials: editForm,
-          connected: true
+          credentials: editForm
         })
       });
+      // A card turns green only after a successful live test
+      await handleTestConnection(updatedItem);
+      await fetchIntegrations();
     } catch (err) {
       console.error('Save integration error:', err);
     } finally {
@@ -294,7 +295,7 @@ export default function IntegrationsHub() {
                       {field.label}
                     </span>
                     <div className="flex items-center justify-between font-mono text-slate-200">
-                      <span className="truncate">{field.value || field.placeholder}</span>
+                      <span className="truncate">{field.isSecret && field.value ? '••••••••' : (field.value || field.placeholder)}</span>
                       {field.isSecret && <Lock className="w-3 h-3 text-slate-500 shrink-0 ml-2" />}
                     </div>
                   </div>
@@ -382,7 +383,7 @@ export default function IntegrationsHub() {
                   </label>
                   <input 
                     type={field.isSecret ? "password" : "text"}
-                    required
+                    required={!field.hasStoredValue}
                     placeholder={field.placeholder}
                     value={editForm[field.label] || ''}
                     onChange={(e) => setEditForm(prev => ({ ...prev, [field.label]: e.target.value }))}

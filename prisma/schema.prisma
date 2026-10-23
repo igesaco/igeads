@@ -131,3 +131,24 @@ model AgencyTask {
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 }
+
+model AgencyContract {
+  id                   String   @id @default(cuid())
+  clientSlug           String
+  clientName           String
+  planType             String   @default("retainer_commission") // retainer_commission, fixed_retainer, performance_fee
+  planTitle            String
+  monthlyRetainer      Float    @default(0)
+  commissionRate       Float    @default(0) // e.g. 8 for 8%
+  currentMonthAdSpend  Float    @default(0)
+  calculatedCommission Float    @default(0)
+  totalMonthlyFee      Float    @default(0)
+  status               String   @default("pending") // paid, pending, due
+  dueDate              String
+  lastPaymentDate      String?
+  contractStartDate    String
+  contractRenewalDate  String
+  invoiceNumber        String   @unique
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+}

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { mockIntegrations } from '@/data/mockData';
+import { maskSecret, mergeCredentials, parseStoredCredentials } from '@/lib/integrations/credentials';
 
 export async function GET() {
   try {
@@ -15,12 +16,7 @@ export async function GET() {
         const found = configs.find(c => c.provider === providerKey || c.name === base.platform);
         if (!found) return base;
 
-        let parsedCredentials: any = {};
-        try {
-          parsedCredentials = JSON.parse(found.credentials);
-        } catch {
-          parsedCredentials = {};
-        }
+        const parsedCredentials = parseStoredCredentials(found.credentials);
 
         return {
           ...base,
@@ -30,10 +26,19 @@ export async function GET() {
           badgeColor: found.connected 
             ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30' 
             : 'bg-slate-800 text-slate-400 border-slate-700',
-          fields: (base.fields || []).map((f: any) => ({
-            ...f,
-            value: parsedCredentials[f.label] || f.value || ''
-          }))
+          // Secret values never leave the server; the browser only sees that one is stored
+          fields: (base.fields || []).map((f: any) => {
+            const storedValue = parsedCredentials[f.label] || '';
+            if (f.isSecret) {
+              return {
+                ...f,
+                value: '',
+                hasStoredValue: Boolean(storedValue),
+                placeholder: storedValue ? `${maskSecret(storedValue)} (kayıtlı, değiştirmek için yazın)` : f.placeholder
+              };
+            }
+            return { ...f, value: storedValue || f.value || '' };
+          })
         };
       });
 
@@ -56,39 +61,43 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { provider, name, category, credentials, accountName, connected = true } = body;
+    const { provider, name, category, credentials, accountName } = body;
 
     if (!provider || !name) {
       return NextResponse.json({ success: false, error: 'Provider ve Name zorunludur' }, { status: 400 });
     }
 
+    // Keep stored secrets when the form leaves a secret field empty
+    const existing = await prisma.integrationConfig.findUnique({ where: { provider } });
+    const incoming = typeof credentials === 'string' ? parseStoredCredentials(credentials) : (credentials || {});
+    const mergedCredentials = JSON.stringify(mergeCredentials(parseStoredCredentials(existing?.credentials), incoming));
+
+    // Saved credentials count as connected only after /api/integrations/test succeeds
     const saved = await prisma.integrationConfig.upsert({
       where: { provider },
       update: {
         name,
         category: category || 'ads',
-        connected: Boolean(connected),
+        connected: false,
         accountName: accountName || undefined,
-        credentials: typeof credentials === 'string' ? credentials : JSON.stringify(credentials || {}),
-        lastSync: new Date(),
-        status: 'active'
+        credentials: mergedCredentials,
+        status: 'configured'
       },
       create: {
         provider,
         name,
         category: category || 'ads',
-        connected: Boolean(connected),
+        connected: false,
         accountName: accountName || `${name} Hesabı`,
-        credentials: typeof credentials === 'string' ? credentials : JSON.stringify(credentials || {}),
-        lastSync: new Date(),
-        status: 'active'
+        credentials: mergedCredentials,
+        status: 'configured'
       }
     });
 
     return NextResponse.json({
       success: true,
-      message: `${name} entegrasyonu başarıyla kaydedildi.`,
-      data: saved
+      message: `${name} bilgileri kaydedildi. Bağlantıyı doğrulamak için test ediliyor.`,
+      data: { id: saved.id, provider: saved.provider, connected: saved.connected, status: saved.status }
     });
   } catch (err: any) {
     console.error('Save integration error:', err);
