@@ -4,15 +4,14 @@ import React, { useState } from 'react';
 import ClientsHub, { ClientData } from './ClientsHub';
 import AgencyTeamWorkflowHub from './AgencyTeamWorkflowHub';
 import AgencyBillingHub from './AgencyBillingHub';
-import { Sparkles, Globe, ShieldCheck, Building2, Users, DollarSign } from 'lucide-react';
+import { Building2, Users, DollarSign } from 'lucide-react';
 
 interface AgencyHubProps {
   activeClientName?: string;
   onSelectClient?: (clientName: string) => void;
-  onSwitchUser?: (member: any) => void;
 }
 
-export default function AgencyHub({ activeClientName = '', onSelectClient, onSwitchUser }: AgencyHubProps) {
+export default function AgencyHub({ activeClientName = '', onSelectClient }: AgencyHubProps) {
   const [agencySection, setAgencySection] = useState<'clients' | 'team' | 'billing'>('clients');
 
   const handleSelectClient = (client: ClientData) => {
@@ -71,7 +70,6 @@ export default function AgencyHub({ activeClientName = '', onSelectClient, onSwi
       ) : agencySection === 'team' ? (
         <AgencyTeamWorkflowHub 
           activeClientName={activeClientName}
-          onSwitchUser={onSwitchUser}
         />
       ) : (
         <AgencyBillingHub 
@@ -79,34 +77,6 @@ export default function AgencyHub({ activeClientName = '', onSelectClient, onSwi
         />
       )}
 
-      {/* White-Label Settings & Client Portal Strip */}
-      <div className="glass-panel rounded-2xl p-6 border border-cyan-500/30 bg-gradient-to-r from-cyan-950/20 via-[#0e1422] to-indigo-950/20">
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2">
-            <Sparkles className="w-4 h-4 text-cyan-400" />
-            <h3 className="text-sm font-bold text-white">White-Label Ajans & Müşteri Portalı Özelleştirme</h3>
-          </div>
-          <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/30">
-            ✓ AJANS LİSANSI AKTİF
-          </span>
-        </div>
-        <p className="text-xs text-slate-300 leading-relaxed max-w-3xl mb-4">
-          Ajans müşterileriniz canlı rapor panellerini incelerken İgeAds adı görmez; sizin logonuzu, özel alan adınızı (örn: <span className="font-mono text-cyan-300">rapor.ajansiniz.com</span>) ve marka renklerinizi görür.
-        </p>
-
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#141b2b] border border-[#212b42] text-xs text-slate-300">
-            <Globe className="w-3.5 h-3.5 text-cyan-400" />
-            <span>Özel Rapor Portalı URL:</span>
-            <span className="font-mono font-bold text-white">rapor.igeajans.com/portal/[marka]</span>
-          </div>
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#141b2b] border border-[#212b42] text-xs text-slate-300">
-            <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-            <span>Müşteri İzolasyonu:</span>
-            <span className="font-semibold text-emerald-400">Şifreli & Bağımsız Veri Katmanı</span>
-          </div>
-        </div>
-      </div>
     </div>
   );
 }

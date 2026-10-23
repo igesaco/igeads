@@ -15,6 +15,13 @@ if (!process.env.DATABASE_URL && fs.existsSync('.env.local')) {
 const prisma = new PrismaClient();
 
 async function main() {
+  // Multi-tenant safety: this wipes every account's data, so refuse once customers have signed up
+  const orgCount = await prisma.organization.count();
+  if (orgCount > 1 && !process.argv.includes('--force')) {
+    console.error(`Veritabanında ${orgCount} müşteri hesabı var; bu komut hepsinin verisini siler. Emin iseniz --force ile çalıştırın.`);
+    process.exit(1);
+  }
+
   console.log('🗑️ Neon PostgreSQL veritabanı temizleniyor...');
   
   // Clean all records

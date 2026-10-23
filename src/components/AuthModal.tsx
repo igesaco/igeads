@@ -17,7 +17,7 @@ import {
 interface AuthModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onLoginSuccess: (userData: { name: string; email: string; role: string; type: 'agency' | 'business' }) => void;
+  onLoginSuccess: (userData: any) => void;
   currentUser?: { name: string; email: string } | null;
   onLogout?: () => void;
   canClose?: boolean;
@@ -32,23 +32,22 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess, currentUser
   const [brandName, setBrandName] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [acceptTerms, setAcceptTerms] = useState(false);
 
   if (!isOpen) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!isLogin) {
-      setError('Yeni hesaplar ajans yöneticisi tarafından açılır. Lütfen yöneticinizle iletişime geçin.');
-      return;
-    }
     setIsLoading(true);
     setError(null);
 
     try {
-      const res = await fetch('/api/auth/login', {
+      const res = await fetch(isLogin ? '/api/auth/login' : '/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password })
+        body: JSON.stringify(isLogin
+          ? { email, password }
+          : { name, email, password, organizationName: brandName, accountType, acceptTerms })
       });
       const json = await res.json();
       if (!json.success) {
@@ -118,11 +117,12 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess, currentUser
             {isLogin ? 'Hesabınıza Giriş Yapın' : 'Büyümeye Bugün Başlayın'}
           </h2>
           <p className="text-xs text-slate-400 mt-0.5">
-            {isLogin ? 'Pazaryeri ve reklam yönetim konsolunuza erişin' : '30 gün ücretsiz deneyin, kart gerekmez'}
+            {isLogin ? 'Pazaryeri ve reklam yönetim konsolunuza erişin' : '14 gün ücretsiz deneyin, kart gerekmez'}
           </p>
         </div>
 
         {/* Account Type Toggle */}
+        {!isLogin && (
         <div className="grid grid-cols-2 gap-2 mb-5 p-1 bg-[#121828] rounded-xl border border-[#1f2a40]">
           <button
             type="button"
@@ -150,6 +150,7 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess, currentUser
             <span>Dijital Ajans</span>
           </button>
         </div>
+        )}
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="space-y-3.5 text-xs">
@@ -219,6 +220,25 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess, currentUser
             </div>
           </div>
 
+          {!isLogin && (
+            <label className="flex items-start gap-2 text-[11px] text-slate-400 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={acceptTerms}
+                onChange={(e) => setAcceptTerms(e.target.checked)}
+                className="mt-0.5 accent-indigo-500"
+              />
+              <span>
+                <a href="/yasal/kullanim-kosullari" target="_blank" className="text-indigo-400 hover:underline">Kullanım koşullarını</a> ve{' '}
+                <a href="/yasal/kvkk" target="_blank" className="text-indigo-400 hover:underline">KVKK aydınlatma metnini</a> okudum, kabul ediyorum.
+              </span>
+            </label>
+          )}
+
+          {!isLogin && password.length > 0 && password.length < 8 && (
+            <p className="text-amber-400 text-[11px]">Şifre en az 8 karakter olmalı.</p>
+          )}
+
           {error && (
             <p className="text-rose-400 font-medium">{error}</p>
           )}
@@ -229,7 +249,7 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess, currentUser
             className="w-full mt-2 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-cyan-600 hover:from-indigo-500 hover:to-cyan-500 font-bold text-white shadow-md shadow-indigo-600/30 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60"
           >
             {isLoading ? (
-              <span>Giriş Yapılıyor...</span>
+              <span>{isLogin ? 'Giriş Yapılıyor...' : 'Hesap Oluşturuluyor...'}</span>
             ) : (
               <>
                 <span>{isLogin ? 'Konsola Giriş Yap' : 'Hesabımı Oluştur'}</span>
@@ -245,7 +265,7 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess, currentUser
             <span>
               Hesabınız yok mu?{' '}
               <button 
-                onClick={() => setIsLogin(false)} 
+                onClick={() => { setIsLogin(false); setError(null); }} 
                 className="text-indigo-400 hover:text-indigo-300 font-bold cursor-pointer"
               >
                 Hemen Ücretsiz Kayıt Olun
@@ -255,7 +275,7 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess, currentUser
             <span>
               Zaten hesabınız var mı?{' '}
               <button 
-                onClick={() => setIsLogin(true)} 
+                onClick={() => { setIsLogin(true); setError(null); }} 
                 className="text-indigo-400 hover:text-indigo-300 font-bold cursor-pointer"
               >
                 Giriş Yapın

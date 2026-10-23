@@ -1,15 +1,17 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { SESSION_COOKIE, verifyPortalKey, verifySessionToken } from '@/lib/auth';
 
-const PUBLIC_API = ['/api/auth/login', '/api/auth/logout', '/api/auth/me'];
+const PUBLIC_API = ['/api/auth/login', '/api/auth/logout', '/api/auth/me', '/api/auth/register'];
 const PORTAL_CLIENT_HEADER = 'x-portal-verified-client';
+const PORTAL_ORG_HEADER = 'x-portal-verified-org';
 
 export async function middleware(request: NextRequest) {
   const { pathname, searchParams } = request.nextUrl;
 
-  // Never trust a verified-client header coming from the browser
+  // Never trust verified-portal headers coming from the browser
   const headers = new Headers(request.headers);
   headers.delete(PORTAL_CLIENT_HEADER);
+  headers.delete(PORTAL_ORG_HEADER);
 
   if (PUBLIC_API.includes(pathname)) {
     return NextResponse.next({ request: { headers } });
@@ -20,10 +22,11 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next({ request: { headers } });
   }
 
-  // Client portal: limited, read-mostly access for one brand with its portal key
+  // Client portal: limited, read-mostly access for one brand of one organization with its portal key
   const portalClient = request.headers.get('x-portal-client');
   const portalKey = request.headers.get('x-portal-key');
-  if (portalClient && await verifyPortalKey(portalClient, portalKey)) {
+  const portalOrg = portalClient ? await verifyPortalKey(portalClient, portalKey) : null;
+  if (portalClient && portalOrg) {
     const method = request.method;
     const allowed =
       (method === 'GET' && pathname === `/api/clients/${portalClient}`) ||
@@ -32,6 +35,7 @@ export async function middleware(request: NextRequest) {
 
     if (allowed) {
       headers.set(PORTAL_CLIENT_HEADER, portalClient);
+      headers.set(PORTAL_ORG_HEADER, portalOrg);
       return NextResponse.next({ request: { headers } });
     }
   }

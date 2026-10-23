@@ -1,9 +1,14 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { clientLimitReached, requireTenant } from '@/lib/tenant';
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
+    const tenant = await requireTenant(request);
+    if (tenant instanceof NextResponse) return tenant;
+
     const clients = await prisma.client.findMany({
+      where: { organizationId: tenant.orgId },
       include: {
         _count: {
           select: { campaigns: true, products: true }
@@ -54,6 +59,18 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
+    const tenant = await requireTenant(request);
+    if (tenant instanceof NextResponse) return tenant;
+
+    const limit = await clientLimitReached(tenant.org);
+    if (limit.reached) {
+      return NextResponse.json({
+        success: false,
+        code: 'plan_limit',
+        error: `Paketiniz en fazla ${limit.max} marka eklemenize izin veriyor. Daha fazlası için paketinizi yükseltin.`
+      }, { status: 402 });
+    }
+
     const body = await request.json();
     const { 
       name, 
@@ -85,13 +102,14 @@ export async function POST(request: Request) {
     if (!slug) slug = 'client-' + Date.now();
 
     // Check unique slug collision
-    const existing = await prisma.client.findUnique({ where: { slug } });
+    const existing = await prisma.client.findFirst({ where: { slug, organizationId: tenant.orgId } });
     if (existing) {
       slug = `${slug}-${Math.floor(Math.random() * 1000)}`;
     }
 
     const client = await prisma.client.create({
       data: {
+        organizationId: tenant.orgId,
         name: name.trim(),
         slug,
         sector: sector || 'Genel Ticaret & Hizmet',
@@ -103,25 +121,6 @@ export async function POST(request: Request) {
         metaAccountId: metaAccountId || null,
         googleAdsId: googleAdsId || null,
         status: 'active'
-      }
-    });
-
-    // Automatically create a starter campaign for this new client
-    await prisma.campaign.create({
-      data: {
-        clientId: client.id,
-        name: `Meta - ${client.name} | Lansman & Satış Kampanyası`,
-        platform: 'meta',
-        status: 'active',
-        dailyBudget: Math.round(Number(monthlyBudget) / 30) || 500,
-        spent: 0,
-        revenue: 0,
-        roas: 0,
-        poas: 0,
-        cpc: 0,
-        ctr: 0,
-        fatigueScore: 0,
-        targetMarketplaceStock: 100
       }
     });
 

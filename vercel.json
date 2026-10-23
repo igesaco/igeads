@@ -1,5 +1,5 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "nextjs",
-  "buildCommand": "if [ \"$VERCEL_ENV\" = \"production\" ] && [ -n \"$DATABASE_URL\" ]; then prisma db push --skip-generate; fi && prisma generate && next build"
+  "buildCommand": "if [ \"$VERCEL_ENV\" = \"production\" ] && [ -n \"$DATABASE_URL\" ]; then node scripts/pre-db-push.mjs && prisma db push --skip-generate; fi && prisma generate && next build"
 }

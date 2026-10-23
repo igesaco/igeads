@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { requireTenant } from '@/lib/tenant';
 import { getGeminiClient, GEMINI_MODELS } from '@/lib/gemini';
 
 function detectSector(name: string): 'cleaning' | 'b2b_marketing' | 'clothing' | 'general' {
@@ -69,6 +70,8 @@ function getSectorFallback(productName: string, sector: 'cleaning' | 'b2b_market
 
 export async function POST(request: Request) {
   try {
+    const tenant = await requireTenant(request);
+    if (tenant instanceof NextResponse) return tenant;
     const body = await request.json().catch(() => ({}));
     const { productName = 'Mandalin Clean Temizlik Hizmeti', platform = 'TikTok / Reels', tone = 'Cesur & Merak Uyandırıcı' } = body;
 

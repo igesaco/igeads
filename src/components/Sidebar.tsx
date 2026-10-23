@@ -73,7 +73,7 @@ export default function Sidebar({
       id: 'advertising',
       title: 'Reklam & Medya Satın Alma',
       items: [
-        { id: 'ads', label: 'Reklam Hub\'ı', icon: Megaphone, count: '4 Kanal' },
+        { id: 'ads', label: 'Reklam Hub\'ı', icon: Megaphone },
         { id: 'autonomous_buyer', label: 'Otonom Medya Alıcı (AI)', icon: Cpu, badge: '1-CLICK' },
         { id: 'automations', label: 'Otonom Kural Motoru', icon: Sliders, badge: 'AUTO' },
         { id: 'attribution', label: 'Çok Kanallı Atıf & LTV', icon: GitMerge, badge: 'ANALİTİK' },
@@ -86,7 +86,7 @@ export default function Sidebar({
         { id: 'creative_studio', label: 'AI Tasarım & Mockup', icon: Palette, badge: '4K' },
         { id: 'video_vision', label: 'Rakip Video Röntgeni', icon: Video, badge: 'AI VISION' },
         { id: 'intelligence', label: 'AI İçerik & Rakip Radarı', icon: Sparkles, badge: 'YENİ' },
-        { id: 'influencer', label: 'Influencer & UGC ROI', icon: Users, badge: 'ROI 6.9x' },
+        { id: 'influencer', label: 'Influencer & UGC ROI', icon: Users },
       ]
     },
     {
@@ -102,17 +102,17 @@ export default function Sidebar({
       id: 'ecommerce',
       title: 'E-Ticaret & Pazaryeri',
       items: [
-        { id: 'marketplace', label: 'Pazaryeri & Stok', icon: Store, alert: '1 Kritik Stok' },
-        { id: 'buybox', label: 'Buybox & Fiyat Casusu', icon: ShoppingBag, alert: '1 Kayıp' },
-        { id: 'return_radar', label: 'Kargo & İade Kalkanı', icon: ShieldAlert, alert: '3 Riskli' },
+        { id: 'marketplace', label: 'Pazaryeri & Stok', icon: Store },
+        { id: 'buybox', label: 'Buybox & Fiyat Casusu', icon: ShoppingBag },
+        { id: 'return_radar', label: 'Kargo & İade Kalkanı', icon: ShieldAlert },
       ]
     },
     {
       id: 'agency_settings',
       title: 'Ajans & Sistem',
       items: [
-        { id: 'integrations', label: 'API & Entegrasyonlar', icon: Key, count: '7 Bağlı' },
-        { id: 'agency', label: 'Ajans & Müşteri Portalı', icon: Building2, count: '3 Müşteri' },
+        { id: 'integrations', label: 'API & Entegrasyonlar', icon: Key },
+        { id: 'agency', label: 'Ajans & Müşteri Portalı', icon: Building2 },
         { id: 'pricing', label: 'Paketler & Abonelik', icon: CreditCard, badge: 'PRO' },
       ]
     }
@@ -131,6 +131,19 @@ export default function Sidebar({
       console.error('Sidebar clients fetch error:', e);
     }
   };
+
+  const [connectedCount, setConnectedCount] = React.useState(0);
+
+  React.useEffect(() => {
+    fetch('/api/integrations')
+      .then(r => r.json())
+      .then(json => {
+        if (json.success && Array.isArray(json.data)) {
+          setConnectedCount(json.data.filter((i: any) => i.connected).length);
+        }
+      })
+      .catch(() => {});
+  }, [activeTab]);
 
   React.useEffect(() => {
     loadClients();
@@ -273,7 +286,7 @@ export default function Sidebar({
           </div>
           
           <p className="text-[11px] text-slate-300 line-clamp-2 leading-relaxed mb-3">
-            Sabah brifingi hazır! 1 stok riski ve 1 rakip karşı hamlesi tespit edildi.
+            Kampanya ve stok verilerinizden günlük özet çıkarır.
           </p>
 
           <button 
@@ -286,16 +299,15 @@ export default function Sidebar({
         </div>
 
         {/* Integration Status Footer */}
-        <div className="mt-3 pt-3 border-t border-[#1a2338]/60 flex items-center justify-between text-[11px] text-slate-400">
-          <span>Entegre Ağlar:</span>
-          <div className="flex items-center gap-1.5">
-            <span title="Meta Ads: Bağlı" className="w-2 h-2 rounded-full bg-blue-500"></span>
-            <span title="Google Ads: Bağlı" className="w-2 h-2 rounded-full bg-emerald-400"></span>
-            <span title="Trendyol: Bağlı" className="w-2 h-2 rounded-full bg-amber-500"></span>
-            <span title="TikTok: İncelemede" className="w-2 h-2 rounded-full bg-rose-500"></span>
-            <span title="Amazon: Bağlı" className="w-2 h-2 rounded-full bg-cyan-400"></span>
-          </div>
-        </div>
+        <button
+          onClick={() => setActiveTab('integrations')}
+          className="mt-3 pt-3 w-full border-t border-[#1a2338]/60 flex items-center justify-between text-[11px] text-slate-400 hover:text-slate-200 cursor-pointer"
+        >
+          <span>Bağlı entegrasyonlar:</span>
+          <span className={connectedCount > 0 ? 'text-emerald-400 font-semibold' : 'text-slate-500'}>
+            {connectedCount > 0 ? `${connectedCount} bağlı` : 'Henüz yok'}
+          </span>
+        </button>
       </div>
     </aside>
   );

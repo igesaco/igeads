@@ -1,11 +1,16 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { requireTenant } from '@/lib/tenant';
 import { mockIntegrations } from '@/data/mockData';
 import { maskSecret, mergeCredentials, parseStoredCredentials } from '@/lib/integrations/credentials';
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
+    const tenant = await requireTenant(request);
+    if (tenant instanceof NextResponse) return tenant;
+
     const configs = await prisma.integrationConfig.findMany({
+      where: { organizationId: tenant.orgId },
       orderBy: { createdAt: 'asc' }
     });
 
@@ -60,6 +65,8 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
+    const tenant = await requireTenant(request);
+    if (tenant instanceof NextResponse) return tenant;
     const body = await request.json();
     const { provider, name, category, credentials, accountName } = body;
 
@@ -68,31 +75,35 @@ export async function POST(request: Request) {
     }
 
     // Keep stored secrets when the form leaves a secret field empty
-    const existing = await prisma.integrationConfig.findUnique({ where: { provider } });
+    const existing = await prisma.integrationConfig.findFirst({ where: { provider, organizationId: tenant.orgId } });
     const incoming = typeof credentials === 'string' ? parseStoredCredentials(credentials) : (credentials || {});
     const mergedCredentials = JSON.stringify(mergeCredentials(parseStoredCredentials(existing?.credentials), incoming));
 
     // Saved credentials count as connected only after /api/integrations/test succeeds
-    const saved = await prisma.integrationConfig.upsert({
-      where: { provider },
-      update: {
-        name,
-        category: category || 'ads',
-        connected: false,
-        accountName: accountName || undefined,
-        credentials: mergedCredentials,
-        status: 'configured'
-      },
-      create: {
-        provider,
-        name,
-        category: category || 'ads',
-        connected: false,
-        accountName: accountName || `${name} Hesabı`,
-        credentials: mergedCredentials,
-        status: 'configured'
-      }
-    });
+    const saved = existing
+      ? await prisma.integrationConfig.update({
+          where: { id: existing.id },
+          data: {
+            name,
+            category: category || 'ads',
+            connected: false,
+            accountName: accountName || undefined,
+            credentials: mergedCredentials,
+            status: 'configured'
+          }
+        })
+      : await prisma.integrationConfig.create({
+          data: {
+            organizationId: tenant.orgId,
+            provider,
+            name,
+            category: category || 'ads',
+            connected: false,
+            accountName: accountName || `${name} Hesabı`,
+            credentials: mergedCredentials,
+            status: 'configured'
+          }
+        });
 
     return NextResponse.json({
       success: true,

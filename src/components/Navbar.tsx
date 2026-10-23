@@ -22,6 +22,12 @@ interface NavbarProps {
   onOpenNotificationDrawer: () => void;
 }
 
+const ROLE_LABELS: Record<string, string> = {
+  owner: 'Hesap Sahibi',
+  admin: 'Yönetici',
+  member: 'Ekip Üyesi'
+};
+
 export default function Navbar({
   activeTab,
   activeClient,
@@ -32,6 +38,15 @@ export default function Navbar({
   onOpenReportModal,
   onOpenNotificationDrawer
 }: NavbarProps) {
+  const [unreadCount, setUnreadCount] = React.useState(0);
+
+  React.useEffect(() => {
+    fetch('/api/notifications')
+      .then(r => r.json())
+      .then(json => { if (json.success) setUnreadCount(json.unreadCount || 0); })
+      .catch(() => {});
+  }, [activeTab]);
+
   const getTabTitle = () => {
     switch (activeTab) {
       case 'dashboard': return 'Genel Büyüme & POAS Paneli';
@@ -128,7 +143,9 @@ export default function Navbar({
             className="w-9 h-9 rounded-lg bg-[#141b2b] border border-[#212b42] flex items-center justify-center text-slate-300 hover:text-white hover:border-slate-500 transition-all cursor-pointer"
           >
             <Bell className="w-4 h-4" />
-            <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-rose-500 ring-2 ring-[#0c101a] animate-ping"></span>
+            {unreadCount > 0 && (
+              <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-rose-500 ring-2 ring-[#0c101a]"></span>
+            )}
           </button>
         </div>
 
@@ -146,7 +163,7 @@ export default function Navbar({
             </div>
             <div className="hidden md:flex flex-col text-left">
               <span className="text-xs font-semibold text-white leading-tight">{currentUser.name}</span>
-              <span className="text-[10px] text-emerald-400">{currentUser.role}</span>
+              <span className="text-[10px] text-emerald-400">{ROLE_LABELS[currentUser.role] || currentUser.role}</span>
             </div>
           </div>
         ) : (
