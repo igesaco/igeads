@@ -36,6 +36,26 @@ interface GeneratedImageItem {
   isBase64?: boolean;
 }
 
+// Shrinks an uploaded photo to at most 1536 px on the long side (JPEG) so the request stays well under
+// Vercel's 4.5 MB body limit.
+function downscaleImage(dataUrl: string, maxSide = 1536): Promise<string> {
+  return new Promise(resolve => {
+    const img = new Image();
+    img.onload = () => {
+      const scale = Math.min(1, maxSide / Math.max(img.width, img.height));
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.round(img.width * scale);
+      canvas.height = Math.round(img.height * scale);
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return resolve(dataUrl);
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      resolve(canvas.toDataURL('image/jpeg', 0.9));
+    };
+    img.onerror = () => resolve('');
+    img.src = dataUrl;
+  });
+}
+
 export default function CreativeStudioHub({ activeClientName = '' }: CreativeStudioHubProps) {
   const [customProductTitle, setCustomProductTitle] = useState('Yeni Hizmet / Ürün');
   const [adFormat, setAdFormat] = useState<'story' | 'feed' | 'banner'>('story');
@@ -63,6 +83,9 @@ export default function CreativeStudioHub({ activeClientName = '' }: CreativeStu
   const [imagePrompt, setImagePrompt] = useState<string>('Lüks salonda profesyonel buharlı koltuk yıkama, tertemiz parlak kumaş dokusu, 8K stüdyo ışığı');
   const [photoStyle, setPhotoStyle] = useState<'studio' | 'lifestyle' | 'luxury' | 'minimal' | 'cyber'>('studio');
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
+  const [imageError, setImageError] = useState<string | null>(null);
+  // Product photo uploaded by the user; sent to Gemini so the product stays the same in the new scene.
+  const [referenceImage, setReferenceImage] = useState<string | null>(null);
   const [isGeneratingFullCreative, setIsGeneratingFullCreative] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [lastEnhancedPrompt, setLastEnhancedPrompt] = useState<string | null>(null);
@@ -173,6 +196,7 @@ export default function CreativeStudioHub({ activeClientName = '' }: CreativeStu
   // Generate real AI Photo via our /api/generate-image endpoint
   const handleGenerateAIPhoto = async (customP?: string) => {
     setIsGeneratingImage(true);
+    setImageError(null);
     try {
       const activePrompt = customP || imagePrompt || customProductTitle;
       const res = await fetch('/api/generate-image', {
@@ -184,11 +208,16 @@ export default function CreativeStudioHub({ activeClientName = '' }: CreativeStu
           style: photoStyle,
           aspectRatio: getAspectRatioString(),
           clientName: activeClientName,
-          seed: Math.floor(Math.random() * 999999)
+          seed: Math.floor(Math.random() * 999999),
+          referenceImage: referenceImage || undefined
         })
       });
 
-      const json = await res.json();
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || !json.success || !json.imageUrl) {
+        setImageError(json.error || 'Fotoğraf üretilemedi. Lütfen tekrar deneyin.');
+        return;
+      }
       if (json.success && json.imageUrl) {
         setActiveImageUrl(json.imageUrl);
         setLastEnhancedPrompt(json.enhancedPrompt || null);
@@ -207,6 +236,7 @@ export default function CreativeStudioHub({ activeClientName = '' }: CreativeStu
       }
     } catch (err) {
       console.error('Image generation failed:', err);
+      setImageError('Sunucuya ulaşılamadı. İnternet bağlantınızı kontrol edip tekrar deneyin.');
     } finally {
       setIsGeneratingImage(false);
     }
@@ -550,7 +580,7 @@ export default function CreativeStudioHub({ activeClientName = '' }: CreativeStu
             className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-xs font-bold text-white shadow-md shadow-emerald-600/25 transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
           >
             <Download className={`w-3.5 h-3.5 ${isExporting ? 'animate-spin' : ''}`} />
-            <span>{isExporting ? 'Mockup Hazırlanıyor...' : 'Mockup&apos;ı İndir (4K PNG)'}</span>
+            <span>{isExporting ? 'Mockup Hazırlanıyor...' : 'Mockup’ı İndir (4K PNG)'}</span>
           </button>
         </div>
       </div>
@@ -599,9 +629,11 @@ export default function CreativeStudioHub({ activeClientName = '' }: CreativeStu
                         const file = e.target.files?.[0];
                         if (file) {
                           const reader = new FileReader();
-                          reader.onload = (event) => {
-                            const b64 = event.target?.result as string;
+                          reader.onload = async (event) => {
+                            const original = event.target?.result as string;
+                            const b64 = original ? await downscaleImage(original) : '';
                             if (b64) {
+                              setReferenceImage(b64);
                               setActiveImageUrl(b64);
                               setImageGallery(prev => [{
                                 id: `upload-${Date.now()}`,
@@ -615,6 +647,7 @@ export default function CreativeStudioHub({ activeClientName = '' }: CreativeStu
                           };
                           reader.readAsDataURL(file);
                         }
+                        e.target.value = '';
                       }}
                     />
                   </label>
@@ -697,6 +730,22 @@ export default function CreativeStudioHub({ activeClientName = '' }: CreativeStu
                 <RefreshCw className={`w-4 h-4 ${isGeneratingImage ? 'animate-spin' : ''}`} />
               </button>
             </div>
+
+            {referenceImage && (
+              <div className="flex items-center gap-2 p-2 rounded-xl bg-purple-950/30 border border-purple-500/30 text-[10px] text-slate-300">
+                <img src={referenceImage} alt="Referans ürün" className="w-8 h-8 rounded object-cover" />
+                <span className="flex-1">Yüklenen ürün fotoğrafı korunacak, sadece sahne yeniden üretilecek.</span>
+                <button type="button" onClick={() => setReferenceImage(null)} className="text-purple-300 hover:text-white font-bold cursor-pointer">
+                  Kaldır
+                </button>
+              </div>
+            )}
+
+            {imageError && (
+              <div role="alert" className="p-2.5 rounded-xl bg-red-950/40 border border-red-500/40 text-[11px] text-red-200 leading-snug">
+                {imageError}
+              </div>
+            )}
 
             {/* Last Enhanced Prompt Accordion/Badge */}
             {lastEnhancedPrompt && (

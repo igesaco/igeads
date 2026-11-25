@@ -1,12 +1,16 @@
-import { getGeminiClient, GEMINI_MODELS } from './gemini';
+import { getGeminiClient } from './gemini';
+
+export type ImageStyle = 'studio' | 'lifestyle' | 'luxury' | 'minimal' | 'cyber';
 
 export interface ImageGenerationOptions {
   prompt?: string;
   productName?: string;
-  style?: 'studio' | 'lifestyle' | 'luxury' | 'minimal' | 'cyber';
-  aspectRatio?: '1:1' | '9:16' | '16:9' | '4:5';
+  style?: ImageStyle;
+  aspectRatio?: string;
   clientName?: string;
   seed?: number;
+  /** Optional product photo (data URL) the generated scene must keep the product from. */
+  referenceImage?: string;
 }
 
 export interface ImageGenerationResult {
@@ -24,328 +28,169 @@ export interface ImageGenerationResult {
   error?: string;
 }
 
-// Curated high-resolution commercial ad photography collections by category & style
-const COMMERCIAL_IMAGE_VAULT: Record<string, string[]> = {
-  // Temizlik, Koltuk, Halı, Hijyen (Mandalin Clean)
-  cleaning_studio: [
-    'https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=1400&auto=format&fit=crop&q=85',
-    'https://images.unsplash.com/photo-1586023492125-27b2c045efd7?w=1400&auto=format&fit=crop&q=85',
-    'https://images.unsplash.com/photo-1567016432779-094069958ea5?w=1400&auto=format&fit=crop&q=85',
-  ],
-  cleaning_lifestyle: [
-    'https://images.unsplash.com/photo-1493663284031-b7e3aefcae8e?w=1400&auto=format&fit=crop&q=85',
-    'https://images.unsplash.com/photo-1583847268964-b28dc8f51f92?w=1400&auto=format&fit=crop&q=85',
-    'https://images.unsplash.com/photo-1540518614846-7ede433c4ef0?w=1400&auto=format&fit=crop&q=85',
-  ],
-  cleaning_luxury: [
-    'https://images.unsplash.com/photo-1618221195710-dd6b41faaea6?w=1400&auto=format&fit=crop&q=85',
-    'https://images.unsplash.com/photo-1616486338812-3dadae4b4ace?w=1400&auto=format&fit=crop&q=85',
-  ],
+// Gemini native image models, tried in order. Override with GEMINI_IMAGE_MODELS="model-a,model-b"
+// when Google renames or retires one.
+const DEFAULT_IMAGE_MODELS = ['gemini-nano-banana-2.1', 'gemini-3.1-flash-image', 'gemini-2.5-flash-image'];
+const envImageModels = (process.env.GEMINI_IMAGE_MODELS || '').split(',').map(m => m.trim()).filter(Boolean);
+export const GEMINI_IMAGE_MODELS = envImageModels.length > 0 ? envImageModels : DEFAULT_IMAGE_MODELS;
 
-  // Giyim, Ceket, Mont, Deri, Moda (Velvet Couture)
-  fashion_studio: [
-    'https://images.unsplash.com/photo-1551028719-00167b16eac5?w=1400&auto=format&fit=crop&q=85',
-    'https://images.unsplash.com/photo-1520975954732-35dd22299614?w=1400&auto=format&fit=crop&q=85',
-    'https://images.unsplash.com/photo-1490481651871-ab68de25d43d?w=1400&auto=format&fit=crop&q=85',
-  ],
-  fashion_lifestyle: [
-    'https://images.unsplash.com/photo-1548883354-7622d03aca27?w=1400&auto=format&fit=crop&q=85',
-    'https://images.unsplash.com/photo-1445205170230-053b83016050?w=1400&auto=format&fit=crop&q=85',
-  ],
-  fashion_luxury: [
-    'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=1400&auto=format&fit=crop&q=85',
-    'https://images.unsplash.com/photo-1492562080023-ab3db95bfbce?w=1400&auto=format&fit=crop&q=85',
-  ],
+const SUPPORTED_RATIOS = ['1:1', '2:3', '3:2', '3:4', '4:3', '4:5', '5:4', '9:16', '16:9', '21:9'];
 
-  // Ajans, Pazarlama, E-Ticaret, Yazılım (İgeAds)
-  marketing_studio: [
-    'https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=1400&auto=format&fit=crop&q=85',
-    'https://images.unsplash.com/photo-1551836022-d5d88e9218df?w=1400&auto=format&fit=crop&q=85',
-  ],
-  marketing_lifestyle: [
-    'https://images.unsplash.com/photo-1519389950473-47ba0277781c?w=1400&auto=format&fit=crop&q=85',
-    'https://images.unsplash.com/photo-1507238691740-187a5b1d37b8?w=1400&auto=format&fit=crop&q=85',
-  ],
-  marketing_luxury: [
-    'https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=1400&auto=format&fit=crop&q=85',
-    'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=1400&auto=format&fit=crop&q=85',
-  ],
+// Image generation usually takes 10–30 s; the route allows 60 s, so the whole run must stay under that.
+const TOTAL_BUDGET_MS = 55_000;
 
-  // Kozmetik, Parfüm, Güzellik
-  beauty_studio: [
-    'https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?w=1400&auto=format&fit=crop&q=85',
-    'https://images.unsplash.com/photo-1608248597359-0f47e30773d2?w=1400&auto=format&fit=crop&q=85',
-    'https://images.unsplash.com/photo-1598440947619-2c35fc9aa908?w=1400&auto=format&fit=crop&q=85',
-  ],
-
-  // Kahve, Gıda, Restoran
-  food_studio: [
-    'https://images.unsplash.com/photo-1509042239860-f550ce710b93?w=1400&auto=format&fit=crop&q=85',
-    'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=1400&auto=format&fit=crop&q=85',
-    'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=1400&auto=format&fit=crop&q=85',
-  ],
-
-  // Diş, Klinik, Sağlık
-  dental_studio: [
-    'https://images.unsplash.com/photo-1588776814546-1ffcf47267a5?w=1400&auto=format&fit=crop&q=85',
-    'https://images.unsplash.com/photo-1629909613654-28e377c37b09?w=1400&auto=format&fit=crop&q=85',
-  ],
-
-  // Saat, Mücevher, Takı
-  luxury_jewelry: [
-    'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=1400&auto=format&fit=crop&q=85',
-    'https://images.unsplash.com/photo-1515562141207-7a88fb7ce338?w=1400&auto=format&fit=crop&q=85',
-  ],
-
-  // Genel / E-Ticaret / Teknoloji
-  general: [
-    'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=1400&auto=format&fit=crop&q=85',
-    'https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?w=1400&auto=format&fit=crop&q=85',
-    'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=1400&auto=format&fit=crop&q=85',
-    'https://images.unsplash.com/photo-1572635196237-14b3f281503f?w=1400&auto=format&fit=crop&q=85',
-  ]
+const STYLE_DIRECTIONS: Record<ImageStyle, string> = {
+  studio: 'Professional commercial studio photography, 85mm lens, softbox key light with subtle rim light, seamless backdrop, crisp product detail.',
+  lifestyle: 'Authentic lifestyle photography in a real, lived-in setting, warm natural window light, 35–50mm lens, candid and believable, not stock-photo-like.',
+  luxury: 'Luxury editorial campaign photography, dramatic low-key lighting, deep shadows with warm gold highlights, rich textures, prestige mood.',
+  minimal: 'Minimal e-commerce photography, clean pastel or neutral background, soft diffused light, gentle shadows, lots of negative space.',
+  cyber: 'Bold futuristic look, vivid cyan and magenta neon lighting, glossy reflective dark surfaces, high contrast.'
 };
 
-function selectSmartCommercialImage(prompt: string, style: string): string {
-  const lower = prompt.toLowerCase();
-  let categoryKey = 'general';
-
-  if (lower.includes('koltuk') || lower.includes('temizlik') || lower.includes('yıkama') || lower.includes('mandalin') || lower.includes('hijyen') || lower.includes('halı')) {
-    categoryKey = style === 'luxury' ? 'cleaning_luxury' : style === 'lifestyle' ? 'cleaning_lifestyle' : 'cleaning_studio';
-  } else if (lower.includes('deri') || lower.includes('ceket') || lower.includes('mont') || lower.includes('giyim') || lower.includes('elbise') || lower.includes('velvet') || lower.includes('moda')) {
-    categoryKey = style === 'luxury' ? 'fashion_luxury' : style === 'lifestyle' ? 'fashion_lifestyle' : 'fashion_studio';
-  } else if (lower.includes('ige') || lower.includes('ajans') || lower.includes('pazarlama') || lower.includes('yazılım') || lower.includes('b2b') || lower.includes('reklam')) {
-    categoryKey = style === 'luxury' ? 'marketing_luxury' : style === 'lifestyle' ? 'marketing_lifestyle' : 'marketing_studio';
-  } else if (lower.includes('parfüm') || lower.includes('kozmetik') || lower.includes('krem') || lower.includes('serum') || lower.includes('güzellik')) {
-    categoryKey = 'beauty_studio';
-  } else if (lower.includes('kahve') || lower.includes('coffee') || lower.includes('yemek') || lower.includes('restoran')) {
-    categoryKey = 'food_studio';
-  } else if (lower.includes('diş') || lower.includes('klinik') || lower.includes('doktor') || lower.includes('sağlık')) {
-    categoryKey = 'dental_studio';
-  } else if (lower.includes('saat') || lower.includes('takı') || lower.includes('yüzük') || lower.includes('kolye')) {
-    categoryKey = 'luxury_jewelry';
+function layoutHint(aspectRatio: string): string {
+  if (aspectRatio === '9:16') {
+    return 'Vertical story composition: keep the main subject in the middle of the frame and leave the top 15% and bottom 35% calm and uncluttered so headline and button text can be overlaid.';
   }
-
-  const pool = COMMERCIAL_IMAGE_VAULT[categoryKey] || COMMERCIAL_IMAGE_VAULT.general;
-  const randomIndex = Math.floor(Math.random() * pool.length);
-  return pool[randomIndex] || pool[0];
+  if (aspectRatio === '16:9' || aspectRatio === '21:9') {
+    return 'Wide banner composition: place the subject on the right third and keep the left side calm and uncluttered for text overlay.';
+  }
+  return 'Balanced square composition with the subject clearly centered and some breathing room around it.';
 }
 
-export function buildBasePrompt(rawPrompt: string, style: string = 'studio', sector: string = ''): string {
-  const p = rawPrompt.trim();
-  const lower = p.toLowerCase();
-
-  let subjectDesc = p;
-  if (lower.includes('koltuk') || lower.includes('temizlik') || lower.includes('yıkama') || lower.includes('mandalin')) {
-    subjectDesc = 'Professional high-end upholstery steam cleaning on luxury sofa, pristine hygiene, 8k commercial photography';
-  } else if (lower.includes('deri') || lower.includes('ceket') || lower.includes('mont') || lower.includes('velvet')) {
-    subjectDesc = 'High-fashion commercial editorial shoot of bespoke designer outerwear jacket, Milan street style, 8k studio lighting';
-  } else if (lower.includes('ige') || lower.includes('ajans') || lower.includes('pazarlama')) {
-    subjectDesc = 'Modern high-tech autonomous marketing command center, glass monitors, glowing neon holographic analytics';
-  }
-
-  let styleModifier = '8k commercial advertising photography, shot on 85mm f/1.4 lens, master studio lighting, sharp focus';
-  if (style === 'lifestyle') {
-    styleModifier = 'authentic candid lifestyle photography, warm daylight, cozy modern architectural environment';
-  } else if (style === 'luxury') {
-    styleModifier = 'ultra-luxury editorial, dramatic rim lighting, gold and deep obsidian shadows, prestige campaign';
-  } else if (style === 'minimal') {
-    styleModifier = 'clean minimalist Scandinavian aesthetic, soft diffused lighting, pastel and neutral tones';
-  } else if (style === 'cyber') {
-    styleModifier = 'vibrant cyberpunk neon lighting, glowing cyan and violet reflections, dark glossy surfaces';
-  }
-
-  return `${subjectDesc}, ${styleModifier}, photorealistic, high definition 8k`;
+export function buildImagePrompt(
+  rawPrompt: string,
+  style: ImageStyle,
+  aspectRatio: string,
+  hasReference: boolean
+): string {
+  const parts = [
+    hasReference
+      ? `Using the product in the attached photo, create a new commercial advertising photo. Keep the product itself exactly as it is (shape, colors, labels, proportions); change only the scene, lighting and background. Scene: ${rawPrompt}`
+      : `Commercial advertising photo. ${rawPrompt}`,
+    STYLE_DIRECTIONS[style] || STYLE_DIRECTIONS.studio,
+    layoutHint(aspectRatio),
+    'Photorealistic, high detail, natural colors.',
+    'Do not add any text, letters, numbers, logos, brand names or watermarks to the image.'
+  ];
+  return parts.join('\n');
 }
 
-async function fetchSemanticImageForPrompt(prompt: string, geminiClient: any): Promise<string | null> {
-  if (!geminiClient) return null;
-  try {
-    const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 3000));
-    const aiPromise = geminiClient.models.generateContent({
-      model: 'gemini-3.1-flash-lite',
-      contents: `You are an image subject extractor. Extract the single most iconic English Wikipedia article subject title representing what visual needs to be shown for this user request (e.g. "Monkey", "Chimpanzee", "Sports car", "Rolex", "Sneakers", "Cleaning", "Coffee", "Cat", "Dog", etc.).
-Rules:
-- Output ONLY the single entity name in English, max 2 words.
-- NO punctuation, NO quotes.
-User request: "${prompt}"`
-    });
-    const res: any = await Promise.race([aiPromise, timeoutPromise]);
-    const entity = (res?.text || '').trim().replace(/["\.\n\r]/g, '');
-    if (!entity || entity.length < 2) return null;
-
-    const controller = new AbortController();
-    const wikiTimeout = setTimeout(() => controller.abort(), 3500);
-    const wikiRes = await fetch('https://en.wikipedia.org/api/rest_v1/page/summary/' + encodeURIComponent(entity), {
-      signal: controller.signal,
-      headers: { 'User-Agent': 'IgeAds/1.0 (contact@igeads.com)' }
-    });
-    clearTimeout(wikiTimeout);
-
-    if (wikiRes.ok) {
-      const data = await wikiRes.json();
-      return data.originalimage?.source || data.thumbnail?.source || null;
-    }
-  } catch (err) {
-    console.warn('Semantic image search warning:', err);
-  }
-  return null;
+function parseDataUrl(dataUrl: string): { mimeType: string; data: string } | null {
+  const match = /^data:(image\/[a-zA-Z0-9.+-]+);base64,(.+)$/.exec(dataUrl || '');
+  if (!match) return null;
+  return { mimeType: match[1], data: match[2] };
 }
 
+function dimensionsFor(aspectRatio: string): { width: number; height: number } {
+  const [w, h] = aspectRatio.split(':').map(Number);
+  if (!w || !h) return { width: 1024, height: 1024 };
+  const scale = 1024 / Math.max(w, h);
+  return { width: Math.round(w * scale), height: Math.round(h * scale) };
+}
+
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error('timeout')), ms);
+    promise.then(
+      value => { clearTimeout(timer); resolve(value); },
+      err => { clearTimeout(timer); reject(err); }
+    );
+  });
+}
+
+function describeError(err: any): string {
+  const message = String(err?.message || err || '');
+  if (message === 'timeout') return 'Gemini zamanında yanıt vermedi.';
+  if (/quota|RESOURCE_EXHAUSTED|429/i.test(message)) return 'Gemini görsel kotası doldu veya API anahtarının görsel üretim yetkisi yok.';
+  if (/SAFETY|blocked|PROHIBITED/i.test(message)) return 'Gemini bu açıklamayı güvenlik kuralları nedeniyle reddetti.';
+  if (/not found|404|is not supported/i.test(message)) return 'Görsel modeli bulunamadı.';
+  return message.slice(0, 200) || 'Bilinmeyen hata.';
+}
+
+/**
+ * Generates an ad photo with a Gemini image model. Never falls back to stock photos: when no model returns
+ * an image, the result has success=false and an error the UI shows to the user.
+ */
 export async function generateAiImage(options: ImageGenerationOptions): Promise<ImageGenerationResult> {
-  const {
-    prompt = '',
-    productName = '',
-    style = 'studio',
-    aspectRatio = '1:1',
-    clientName = '',
-    seed = Math.floor(Math.random() * 999999)
-  } = options;
+  const style: ImageStyle = (options.style && options.style in STYLE_DIRECTIONS ? options.style : 'studio') as ImageStyle;
+  const aspectRatio = SUPPORTED_RATIOS.includes(options.aspectRatio || '') ? (options.aspectRatio as string) : '1:1';
+  const seed = options.seed ?? Math.floor(Math.random() * 999999);
+  const rawInput = (options.prompt || '').trim() || (options.productName || '').trim() || (options.clientName || '').trim();
+  const reference = options.referenceImage ? parseDataUrl(options.referenceImage) : null;
 
-  const rawInput = prompt.trim() || productName.trim() || clientName.trim() || 'Lüks Modern Ürün';
-
-  const geminiClient = getGeminiClient();
-  let enhancedPrompt = '';
-  let nativeGeminiImageBase64 = '';
-  let engineUsed = 'Google Gemini AI Studio Engine';
-
-  // 1. Try Gemini Native Image Generation Models (gemini-3.1-flash-image, gemini-2.5-flash-image)
-  if (geminiClient) {
-    const GEMINI_IMAGE_MODELS = [
-      'gemini-3.1-flash-image',
-      'gemini-2.5-flash-image',
-      'gemini-3.1-flash-lite-image',
-      'gemini-3-pro-image'
-    ];
-
-    for (const imageModel of GEMINI_IMAGE_MODELS) {
-      try {
-        const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 5000));
-        const callPromise = geminiClient.models.generateContent({
-          model: imageModel,
-          contents: `Commercial advertising photo of ${rawInput}, ${style} style, 8k resolution, photorealistic, professional lighting`
-        });
-        const res: any = await Promise.race([callPromise, timeoutPromise]);
-        const parts = res?.candidates?.[0]?.content?.parts || [];
-        for (const p of parts) {
-          if (p.inlineData && p.inlineData.data) {
-            const mime = p.inlineData.mimeType || 'image/jpeg';
-            nativeGeminiImageBase64 = `data:${mime};base64,${p.inlineData.data}`;
-            engineUsed = `Google Gemini (${imageModel})`;
-            break;
-          }
-        }
-        if (nativeGeminiImageBase64) break;
-      } catch {
-        // Free tier or quota limit 0, continue to next pipeline
-      }
-    }
-  }
-
-  // If Gemini native image succeeded, return immediately!
-  if (nativeGeminiImageBase64) {
-    return {
-      success: true,
-      imageUrl: nativeGeminiImageBase64,
-      directUrl: nativeGeminiImageBase64,
-      isBase64: true,
-      enhancedPrompt: rawInput,
-      originalPrompt: rawInput,
-      aspectRatio,
-      dimensions: { width: 1080, height: 1080 },
-      style,
-      seed,
-      engine: engineUsed
-    };
-  }
-
-  // 2. Enrich prompt using Gemini AI Flash
-  if (geminiClient) {
-    const enrichmentSystemPrompt = `You are an elite commercial advertising photography director.
-Convert this product/service into a short, master-grade commercial advertising photography prompt in English.
-Details: camera lens (e.g. 85mm f/1.4), lighting, surface textures, depth of field.
-Rules:
-- Output ONLY the prompt in English, max 30 words.
-- NO text, words, or logos inside the image. Pure visual photography only.`;
-
-    for (const model of GEMINI_MODELS) {
-      try {
-        const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 3500));
-        const aiPromise = geminiClient.models.generateContent({
-          model,
-          contents: `${enrichmentSystemPrompt}\n\nProduct/Service: "${rawInput}". Style: "${style}".`
-        });
-        const response: any = await Promise.race([aiPromise, timeoutPromise]);
-        const text = response?.text?.trim();
-        if (text && text.length > 10) {
-          enhancedPrompt = text.replace(/["\n\r]/g, ' ').trim();
-          break;
-        }
-      } catch {
-        // Fallback
-      }
-    }
-  }
-
-  if (!enhancedPrompt) {
-    enhancedPrompt = buildBasePrompt(rawInput, style, clientName);
-  }
-
-  // 3. Try Gemini semantic image matching for custom user subjects (e.g. monkey, sports car, watch)
-  let selectedCdnUrl = '';
-  const isCustomTopic = !rawInput.toLowerCase().includes('koltuk') && 
-                        !rawInput.toLowerCase().includes('mandalin') && 
-                        !rawInput.toLowerCase().includes('velvet') &&
-                        !rawInput.toLowerCase().includes('ceket');
-
-  if (isCustomTopic && geminiClient) {
-    selectedCdnUrl = (await fetchSemanticImageForPrompt(rawInput, geminiClient)) || '';
-  }
-
-  // If not found or matches known client categories, fallback to curated commercial photo vault
-  if (!selectedCdnUrl) {
-    selectedCdnUrl = selectSmartCommercialImage(rawInput, style);
-  }
-
-  // 4. Fetch image buffer and convert to CORS-safe Base64 Data URL
-  // This guarantees 100% offline reliability, instant local display, zero external redirects, zero paywalls!
-  let base64Image = '';
-  try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 6000);
-    const imgRes = await fetch(selectedCdnUrl, {
-      signal: controller.signal,
-      headers: {
-        'Accept': 'image/jpeg,image/png,image/*'
-      }
-    });
-    clearTimeout(timeoutId);
-
-    if (imgRes.ok) {
-      const buffer = await imgRes.arrayBuffer();
-      if (buffer && buffer.byteLength > 1000) {
-        const b64 = Buffer.from(buffer).toString('base64');
-        const contentType = imgRes.headers.get('content-type') || 'image/jpeg';
-        base64Image = `data:${contentType};base64,${b64}`;
-      }
-    }
-  } catch (err: any) {
-    console.warn('CDN fetch warning:', err.message);
-  }
-
-  const finalImageUrl = base64Image || selectedCdnUrl;
-
-  return {
-    success: true,
-    imageUrl: finalImageUrl,
-    directUrl: selectedCdnUrl,
-    isBase64: Boolean(base64Image),
-    enhancedPrompt,
+  const base: ImageGenerationResult = {
+    success: false,
+    imageUrl: '',
+    directUrl: '',
+    isBase64: false,
+    enhancedPrompt: '',
     originalPrompt: rawInput,
     aspectRatio,
-    dimensions: { width: 1080, height: 1080 },
+    dimensions: dimensionsFor(aspectRatio),
     style,
     seed,
-    engine: 'Google Gemini AI Studio Engine'
+    engine: ''
   };
+
+  if (!rawInput) {
+    return { ...base, error: 'Lütfen üretilecek fotoğrafı tarif eden bir açıklama yazın.' };
+  }
+
+  const client = getGeminiClient();
+  if (!client) {
+    return { ...base, error: 'GEMINI_API_KEY tanımlı değil; görsel üretilemiyor.' };
+  }
+
+  const prompt = buildImagePrompt(rawInput, style, aspectRatio, Boolean(reference));
+  base.enhancedPrompt = prompt;
+
+  const contents = reference
+    ? [{ role: 'user', parts: [{ inlineData: reference }, { text: prompt }] }]
+    : prompt;
+
+  const startedAt = Date.now();
+  let lastError = '';
+
+  for (const model of GEMINI_IMAGE_MODELS) {
+    const remaining = TOTAL_BUDGET_MS - (Date.now() - startedAt);
+    if (remaining < 5_000) break;
+    try {
+      const response: any = await withTimeout(
+        client.models.generateContent({
+          model,
+          contents,
+          config: {
+            responseModalities: ['IMAGE'],
+            imageConfig: { aspectRatio }
+          }
+        }),
+        remaining
+      );
+
+      const parts = response?.candidates?.[0]?.content?.parts || [];
+      const imagePart = parts.find((p: any) => p?.inlineData?.data);
+      if (imagePart) {
+        const mime = imagePart.inlineData.mimeType || 'image/png';
+        const dataUrl = `data:${mime};base64,${imagePart.inlineData.data}`;
+        return {
+          ...base,
+          success: true,
+          imageUrl: dataUrl,
+          directUrl: dataUrl,
+          isBase64: true,
+          engine: `Google Gemini (${model})`
+        };
+      }
+
+      const finishReason = response?.candidates?.[0]?.finishReason || response?.promptFeedback?.blockReason;
+      lastError = finishReason ? `Gemini görsel döndürmedi (${finishReason}).` : 'Gemini görsel döndürmedi.';
+      console.warn(`Image model ${model} returned no image`, finishReason || '');
+    } catch (err: any) {
+      lastError = describeError(err);
+      console.warn(`Image model ${model} failed:`, err?.message || err);
+      if (lastError === 'Gemini zamanında yanıt vermedi.') break;
+    }
+  }
+
+  return { ...base, error: `Fotoğraf üretilemedi. ${lastError} Lütfen tekrar deneyin.`.trim() };
 }
